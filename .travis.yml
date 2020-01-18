@@ -1,0 +1,23 @@
+language: ruby
+
+rvm:
+  - "2.6"
+
+gemfile:
+  - Gemfile
+
+matrix:
+  include:
+  - gemfile: Gemfile
+  - gemfile: gemfiles/activerecord_5.2.gemfile
+  - gemfile: gemfiles/activerecord_5.1.gemfile
+  - gemfile: gemfiles/activerecord_5.0.gemfile
+  - gemfile: gemfiles/activerecord_4.2.gemfile
+
+script:
+  - gem list bundler
+  - bundle exec rake spec
+
+env:
+  RACK_ENV: ""
+  RAILS_ENV: ""
