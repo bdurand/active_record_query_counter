@@ -49,6 +49,21 @@ module ActiveRecordQueryCounter
       current[2].to_f if current.is_a?(Array)
     end
 
+    # Return the query info as a hash with keys :query_count, :row_count, :query_time.
+    # or nil if not inside a block where queries are being counted.
+    def info
+      current = Thread.current[:database_query_counter]
+      if current
+        {
+          :query_count => current[0],
+          :row_count => current[1],
+          :query_time => current[2]
+        }
+      else
+        nil
+      end
+    end
+
     # Enable the query counting behavior on a connection adapter class.
     def enable!(connection_class)
       unless connection_class.include?(ConnectionAdapterExtension)

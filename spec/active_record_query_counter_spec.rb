@@ -15,6 +15,7 @@ describe ActiveRecordQueryCounter do
       expect(ActiveRecordQueryCounter.query_count).to eq nil
       expect(ActiveRecordQueryCounter.row_count).to eq nil
       expect(ActiveRecordQueryCounter.query_time).to eq nil
+      expect(ActiveRecordQueryCounter.info).to eq nil
     end
 
     it "counts the number of queries and rows returned within a block" do
@@ -31,11 +32,14 @@ describe ActiveRecordQueryCounter do
 
         expect(ActiveRecordQueryCounter.query_time).to be_a(Float)
         expect(ActiveRecordQueryCounter.query_time).to be > 0
+
+        expect(ActiveRecordQueryCounter.info).to eq({query_count: 2, row_count: 4, query_time: ActiveRecordQueryCounter.query_time})
       end
 
       expect(ActiveRecordQueryCounter.query_count).to eq nil
       expect(ActiveRecordQueryCounter.row_count).to eq nil
       expect(ActiveRecordQueryCounter.query_time).to eq nil
+      expect(ActiveRecordQueryCounter.info).to eq nil
     end
 
     it "does not count cached queries" do
