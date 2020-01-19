@@ -11,8 +11,16 @@ The intended use is to gather instrumentation stats for finding hot spots in you
 
 The behavior must be enabled on your database connection adapter from within an initializer.
 
+Postgres:
+
 ```ruby
 ActiveRecordQueryCounter.enable!(ActiveRecord::ConnectionAdapters::PostgreSQLAdapter)
+```
+
+MySQL:
+
+```ruby
+ActiveRecordQueryCounter.enable!(ActiveRecord::ConnectionAdapters::Mysql2Adapter)
 ```
 
 Next you must specify the blocks where you want to count queries.
@@ -23,5 +31,23 @@ ActiveRecordQueryCounter.count_queries do
   puts "Queries: #{ActiveRecordQueryCounter.query_count}"
   puts "Rows: #{ActiveRecordQueryCounter.row_count}"
   puts "Time: #{ActiveRecordQueryCounter.query_time}"
+end
+```
+
+This gem includes middleware for both Rack and Sidekiq that will enable query counting.
+
+If you are using Rails with Sidekiq, you can enable both with an initializer.
+
+```ruby
+ActiveSupport.on_load(:active_record) do
+  ActiveRecordQueryCounter.enable!(ActiveRecord::ConnectionAdapters::PostgreSQLAdapter)
+end
+
+Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware)
+
+Sidekiq.configure_server do |config|
+  config.server_middleware do |chain|
+    chain.add ActiveRecordQueryCounter::SidekiqMiddleware
+  end
 end
 ```
