@@ -5,6 +5,8 @@ RAILS_MINOR_RELEASES.each do |version|
     gem "activerecord", "~> #{version}.0"
     if version.to_f < 5.2
       gem "sqlite3", "~> 1.3.0"
+    else
+      gem "sqlite3", "~> 1.4.0"
     end
   end
 end

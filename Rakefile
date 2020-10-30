@@ -1,9 +1,10 @@
 require "bundler/gem_tasks"
 require "rspec/core/rake_task"
+require "standard/rake"
 
 RSpec::Core::RakeTask.new(:spec)
 
-task :default => :appraisals
+task default: :appraisals
 
 desc "run the specs using appraisal"
 task :appraisals do

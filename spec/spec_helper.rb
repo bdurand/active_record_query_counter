@@ -5,7 +5,9 @@ ActiveRecord::Base.establish_connection("adapter" => "sqlite3", "database" => ":
 ActiveRecordQueryCounter.enable!(ActiveRecord::Base.connection.class)
 
 class TestModel < ActiveRecord::Base
-  connection.create_table(table_name) do |t|
-    t.column :name, :string
-  end unless table_exists?
+  unless table_exists?
+    connection.create_table(table_name) do |t|
+      t.column :name, :string
+    end
+  end
 end

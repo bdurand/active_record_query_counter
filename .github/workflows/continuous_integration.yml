@@ -1,0 +1,51 @@
+name: Continuous Integration
+on:
+  push:
+    branches:
+      - master
+      - actions-*
+    tags:
+      - v*
+  pull_request:
+env:
+  BUNDLE_CLEAN: "true"
+  BUNDLE_PATH: vendor/bundle
+  BUNDLE_JOBS: 3
+  BUNDLE_RETRY: 3
+jobs:
+  specs:
+    name: ${{ matrix.job }} ruby-${{ matrix.ruby }} ${{ matrix.activerecord && format('activerecord-{0}', matrix.activerecord) }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["2.6"]
+        activerecord: ["4.2", "5.0", "5.1", "5.2", "6.0"]
+        job: [ rspec ]
+        include:
+          - ruby: "2.7"
+            activerecord: original
+            job: rspec
+          - ruby: "2.7"
+            job: standardrb
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: inject activerecord ${{ matrix.activerecord }}
+        if:   matrix.activerecord != 'original' && matrix.activerecord != null
+        run: | # inject a specific version of activerecord into the Gemfile
+          bundle update
+          bundle exec appraisal generate
+          bundle config set gemfile "gemfiles/activerecord_${{ matrix.activerecord }}.gemfile"
+      - name: install dependencies
+        run:  bundle install
+      - name: specs
+        if:   matrix.job == 'rspec'
+        run:  bundle exec rake spec
+      - name: standardrb
+        if:   matrix.job == 'standardrb'
+        run:  bundle exec rake standard

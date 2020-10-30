@@ -1,7 +1,6 @@
 require "spec_helper"
 
 describe ActiveRecordQueryCounter do
-
   before :all do
     TestModel.create!(name: "A")
     TestModel.create!(name: "B")
@@ -33,7 +32,15 @@ describe ActiveRecordQueryCounter do
         expect(ActiveRecordQueryCounter.query_time).to be_a(Float)
         expect(ActiveRecordQueryCounter.query_time).to be > 0
 
-        expect(ActiveRecordQueryCounter.info).to eq({query_count: 2, row_count: 4, query_time: ActiveRecordQueryCounter.query_time})
+        ActiveRecord::Base.transaction { true }
+
+        expect(ActiveRecordQueryCounter.info).to eq({
+          query_count: 2,
+          row_count: 4,
+          query_time: ActiveRecordQueryCounter.query_time,
+          transaction_count: 1,
+          transaction_time: ActiveRecordQueryCounter.transaction_time
+        })
       end
 
       expect(ActiveRecordQueryCounter.query_count).to eq nil
@@ -77,6 +84,40 @@ describe ActiveRecordQueryCounter do
     end
   end
 
+  describe "counting transactions" do
+    it "is not enabled outside of a count_queries block" do
+      ActiveRecord::Base.transaction { true }
+      expect(ActiveRecordQueryCounter.transaction_count).to eq nil
+      expect(ActiveRecordQueryCounter.transaction_time).to eq nil
+    end
+
+    it "counts the number of transactions inside a block" do
+      ActiveRecordQueryCounter.count_queries do
+        expect(ActiveRecordQueryCounter.transaction_count).to eq 0
+        expect(ActiveRecordQueryCounter.transaction_time).to eq 0
+
+        ActiveRecord::Base.transaction do
+          expect(ActiveRecordQueryCounter.transaction_count).to eq 0
+          ActiveRecord::Base.transaction do
+            expect(ActiveRecordQueryCounter.transaction_count).to eq 0
+          end
+          expect(ActiveRecordQueryCounter.transaction_count).to eq 0
+        end
+
+        expect(ActiveRecordQueryCounter.transaction_count).to eq 1
+
+        ActiveRecord::Base.transaction do
+          expect(ActiveRecordQueryCounter.transaction_count).to eq 1
+        end
+
+        expect(ActiveRecordQueryCounter.transaction_count).to eq 2
+        expect(ActiveRecordQueryCounter.transaction_time).to be > 0
+      end
+      expect(ActiveRecordQueryCounter.transaction_count).to eq nil
+      expect(ActiveRecordQueryCounter.transaction_time).to eq nil
+    end
+  end
+
   describe ActiveRecordQueryCounter::RackMiddleware do
     it "enables query counting" do
       app = lambda do |env|
@@ -104,5 +145,4 @@ describe ActiveRecordQueryCounter do
       expect(row_count).to eq 3
     end
   end
-
 end
