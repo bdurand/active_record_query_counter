@@ -114,7 +114,7 @@ module ActiveRecordQueryCounter
       result
     end
   end
-  
+
   module TransactionManagerExtension
     def begin_transaction(*args)
       if open_transactions == 0
