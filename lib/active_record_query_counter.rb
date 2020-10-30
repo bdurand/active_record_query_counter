@@ -10,14 +10,23 @@
 #    puts ActiveRecordQueryCounter.row_count
 #  end
 module ActiveRecordQueryCounter
+  class Counter
+    attr_accessor :query_count, :row_count, :query_time, :transaction_count, :transaction_time
+    def initialize
+      @query_count = 0
+      @row_count = 0
+      @query_time = 0.0
+      @transaction_count = 0
+      @transaction_time = 0.0
+    end
+  end
 
   class << self
-
     # Enable query counting within a block.
     def count_queries
       current = Thread.current[:database_query_counter]
       begin
-        Thread.current[:database_query_counter] = [0, 0, 0.0]
+        Thread.current[:database_query_counter] = Counter.new
         yield
       ensure
         Thread.current[:database_query_counter] = current
@@ -26,41 +35,60 @@ module ActiveRecordQueryCounter
 
     # Increment the query counters
     def increment(row_count, elapsed_time)
-      current = Thread.current[:database_query_counter]
-      if current.is_a?(Array)
-        current[0] = current[0].to_i + 1
-        current[1] = current[1].to_i + row_count
-        current[2] = current[2].to_f + elapsed_time
+      counter = Thread.current[:database_query_counter]
+      if counter.is_a?(Counter)
+        counter.query_count += 1
+        counter.row_count += row_count
+        counter.query_time += elapsed_time
+      end
+    end
+
+    def increment_transaction(elapsed_time)
+      counter = Thread.current[:database_query_counter]
+      if counter.is_a?(Counter)
+        counter.transaction_count += 1
+        counter.transaction_time += elapsed_time
       end
     end
 
     def query_count
-      current = Thread.current[:database_query_counter]
-      current[0].to_i if current.is_a?(Array)
+      counter = Thread.current[:database_query_counter]
+      counter.query_count if counter.is_a?(Counter)
     end
 
     def row_count
-      current = Thread.current[:database_query_counter]
-      current[1].to_i if current.is_a?(Array)
+      counter = Thread.current[:database_query_counter]
+      counter.row_count if counter.is_a?(Counter)
     end
 
     def query_time
-      current = Thread.current[:database_query_counter]
-      current[2].to_f if current.is_a?(Array)
+      counter = Thread.current[:database_query_counter]
+      counter.query_time if counter.is_a?(Counter)
     end
 
-    # Return the query info as a hash with keys :query_count, :row_count, :query_time.
-    # or nil if not inside a block where queries are being counted.
+    def transaction_count
+      counter = Thread.current[:database_query_counter]
+      counter.transaction_count if counter.is_a?(Counter)
+    end
+
+    def transaction_time
+      counter = Thread.current[:database_query_counter]
+      counter.transaction_time if counter.is_a?(Counter)
+    end
+
+    # Return the query info as a hash with keys :query_count, :row_count, :query_time
+    # :transaction_count, and :transaction_type or nil if not inside a block where queries
+    # are being counted.
     def info
-      current = Thread.current[:database_query_counter]
-      if current
+      counter = Thread.current[:database_query_counter]
+      if counter.is_a?(Counter)
         {
-          :query_count => current[0],
-          :row_count => current[1],
-          :query_time => current[2]
+          query_count: counter.query_count,
+          row_count: counter.row_count,
+          query_time: counter.query_time,
+          transaction_count: counter.transaction_count,
+          transaction_time: counter.transaction_time
         }
-      else
-        nil
       end
     end
 
@@ -69,13 +97,14 @@ module ActiveRecordQueryCounter
       unless connection_class.include?(ConnectionAdapterExtension)
         connection_class.prepend(ConnectionAdapterExtension)
       end
+      unless ActiveRecord::ConnectionAdapters::TransactionManager.include?(TransactionManagerExtension)
+        ActiveRecord::ConnectionAdapters::TransactionManager.prepend(TransactionManagerExtension)
+      end
     end
-
   end
 
   # Module to prepend to the connection adapter to inject the counting behavior.
   module ConnectionAdapterExtension
-
     def exec_query(*args)
       start_time = Time.now
       result = super
@@ -84,12 +113,35 @@ module ActiveRecordQueryCounter
       end
       result
     end
+  end
 
+  module TransactionManagerExtension
+    def begin_transaction(*args)
+      if open_transactions == 0
+        @active_record_query_counter_transaction_start_time = Time.current
+      end
+      super
+    end
+
+    def commit_transaction(*args)
+      if @active_record_query_counter_transaction_start_time && open_transactions == 1
+        ActiveRecordQueryCounter.increment_transaction(Time.current - @active_record_query_counter_transaction_start_time)
+        @active_record_query_counter_transaction_start_time = nil
+      end
+      super
+    end
+
+    def rollback_transaction(*args)
+      if @active_record_query_counter_transaction_start_time && open_transactions == 1
+        ActiveRecordQueryCounter.increment_transaction(Time.current - @active_record_query_counter_transaction_start_time)
+        @active_record_query_counter_transaction_start_time = nil
+      end
+      super
+    end
   end
 
   # Rack middleware to count queries on a request.
   class RackMiddleware
-
     def initialize(app)
       @app = app
     end
@@ -97,16 +149,12 @@ module ActiveRecordQueryCounter
     def call(env)
       ActiveRecordQueryCounter.count_queries { @app.call(env) }
     end
-
   end
 
   # Sidekiq middleware to count queries on a job.
   class SidekiqMiddleware
-
     def call(worker, job, queue, &block)
       ActiveRecordQueryCounter.count_queries(&block)
     end
-
   end
-
 end

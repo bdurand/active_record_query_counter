@@ -3,5 +3,12 @@
 source "https://rubygems.org"
 
 gem "activerecord", "~> 5.2.0"
+gem "sqlite3", "~> 1.4.0"
+
+group :development, :test do
+  gem "rake"
+  gem "appraisal"
+  gem "standard", "~>0.8.1"
+end
 
 gemspec path: "../"
