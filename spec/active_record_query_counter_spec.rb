@@ -138,7 +138,7 @@ describe ActiveRecordQueryCounter do
         expect(transactions.values.collect(&:first)).to eq [1, 3, 1]
         expect(transactions.values.sum(&:last)).to eq ActiveRecordQueryCounter.transaction_time
 
-        lib_dir = File.expand_path( "../../lib", __FILE__)
+        lib_dir = File.expand_path("../../lib", __FILE__)
         transactions.keys.each do |trace|
           expect(trace.first.start_with?(lib_dir)).to eq false
         end
