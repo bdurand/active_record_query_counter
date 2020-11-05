@@ -11,13 +11,22 @@
 #  end
 module ActiveRecordQueryCounter
   class Counter
-    attr_accessor :query_count, :row_count, :query_time, :transaction_count, :transaction_time
+    attr_accessor :query_count, :row_count, :query_time
+    attr_reader :transactions
+
     def initialize
       @query_count = 0
       @row_count = 0
       @query_time = 0.0
-      @transaction_count = 0
-      @transaction_time = 0.0
+      @transactions = {}
+    end
+
+    def transaction_count
+      @transactions.size
+    end
+
+    def transaction_time
+      @transactions.values.sum { |count, time| time }
     end
   end
 
@@ -46,8 +55,21 @@ module ActiveRecordQueryCounter
     def increment_transaction(elapsed_time)
       counter = Thread.current[:database_query_counter]
       if counter.is_a?(Counter)
-        counter.transaction_count += 1
-        counter.transaction_time += elapsed_time
+        trace = caller
+        index = 0
+        caller.each do |line|
+          break unless line.start_with?(__FILE__)
+          index += 1
+        end
+        trace = trace[index, trace.length]
+        info = counter.transactions[trace]
+        if info
+          info[0] += 1
+          info[1] += elapsed_time
+        else
+          info = [1, elapsed_time]
+          counter.transactions[trace] = info
+        end
       end
     end
 
@@ -74,6 +96,11 @@ module ActiveRecordQueryCounter
     def transaction_time
       counter = Thread.current[:database_query_counter]
       counter.transaction_time if counter.is_a?(Counter)
+    end
+
+    def transactions
+      counter = Thread.current[:database_query_counter]
+      counter.transactions.dup if counter.is_a?(Counter)
     end
 
     # Return the query info as a hash with keys :query_count, :row_count, :query_time
