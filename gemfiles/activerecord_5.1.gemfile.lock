@@ -1,7 +1,7 @@
 PATH
   remote: ..
   specs:
-    active_record_query_counter (1.1.0)
+    active_record_query_counter (1.1.1)
       activerecord (>= 4.2)
 
 GEM

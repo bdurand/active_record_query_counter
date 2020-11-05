@@ -1,10 +1,14 @@
 require "spec_helper"
 
 describe ActiveRecordQueryCounter do
-  before :all do
+  before :each do
     TestModel.create!(name: "A")
     TestModel.create!(name: "B")
     TestModel.create!(name: "C")
+  end
+
+  after :each do
+    TestModel.destroy_all
   end
 
   describe "counting queries" do
@@ -89,6 +93,7 @@ describe ActiveRecordQueryCounter do
       ActiveRecord::Base.transaction { true }
       expect(ActiveRecordQueryCounter.transaction_count).to eq nil
       expect(ActiveRecordQueryCounter.transaction_time).to eq nil
+      expect(ActiveRecordQueryCounter.transactions).to eq nil
     end
 
     it "counts the number of transactions inside a block" do
@@ -115,6 +120,29 @@ describe ActiveRecordQueryCounter do
       end
       expect(ActiveRecordQueryCounter.transaction_count).to eq nil
       expect(ActiveRecordQueryCounter.transaction_time).to eq nil
+    end
+
+    it "keeps a count and time for each transaction stack trace" do
+      ActiveRecordQueryCounter.count_queries do
+        TestModel.create!(name: "foo")
+        3.times do |i|
+          TestModel.create!(name: "record-#{i}")
+        end
+        TestModel.transaction do
+          TestModel.create!(name: "bar")
+          TestModel.create!(name: "baz")
+        end
+
+        transactions = ActiveRecordQueryCounter.transactions
+        expect(transactions.size).to eq 3
+        expect(transactions.values.collect(&:first)).to eq [1, 3, 1]
+        expect(transactions.values.sum(&:last)).to eq ActiveRecordQueryCounter.transaction_time
+
+        lib_dir = File.expand_path("../../lib", __FILE__)
+        transactions.keys.each do |trace|
+          expect(trace.first.start_with?(lib_dir)).to eq false
+        end
+      end
     end
   end
 
