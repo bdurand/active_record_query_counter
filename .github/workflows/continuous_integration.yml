@@ -12,6 +12,7 @@ env:
   BUNDLE_PATH: vendor/bundle
   BUNDLE_JOBS: 3
   BUNDLE_RETRY: 3
+  CC_TEST_REPORTER_ID: 8f360e59f6cb98313ccbb27fecf82f667455acec33cf23ae115c2db121852700
 jobs:
   specs:
     name: ${{ matrix.job }} ruby-${{ matrix.combo.ruby || matrix.ruby }} ${{ matrix.combo.activerecord && format('activerecord-{0}', matrix.combo.activerecord) }}
@@ -22,6 +23,7 @@ jobs:
         combo:
           - activerecord: "latest"
             ruby: "3.0"
+            coverage: true
           - activerecord: "6.1"
             ruby: "3.0"
           - activerecord: "6.0"
@@ -40,9 +42,6 @@ jobs:
           - ruby: "3.0"
             activerecord: "latest"
             job: rspec
-          - job: "coverage"
-            activerecord: "latest"
-            ruby: "3.0"
           - ruby: "2.7"
             activerecord: "latest"
             job: standardrb
@@ -59,9 +58,9 @@ jobs:
             gem uninstall bundler --all
             gem install bundler --no-document --version ${{ matrix.combo.bundler }}
           fi
-          if [ "${{ matrix.combo.activerecord }}" != "latest" ]; then
-            echo "using gemfile gemfiles/activerecord_${{ matrix.combo.activerecord }}.gemfile"
-            bundle config set gemfile "gemfiles/activerecord_${{ matrix.combo.activerecord }}.gemfile"
+          if [ "${{ matrix.combo.activerecord || matrix.activerecord }}" != "latest" ]; then
+            echo "using gemfile gemfiles/activerecord_${{ matrix.combo.activerecord || matrix.activerecord }}.gemfile"
+            bundle config set gemfile "gemfiles/activerecord_${{ matrix.combo.activerecord || matrix.activerecord }}.gemfile"
           fi
           bundle update
       - name: install dependencies
@@ -70,12 +69,8 @@ jobs:
         if:   matrix.job == 'rspec'
         run:  bundle exec rake spec
       - name: code coverage
-        if:   matrix.job == 'coverage'
+        if:   matrix.coverage == true
         uses: paambaati/codeclimate-action@v2.7.5
-        env:
-          CC_TEST_REPORTER_ID: 8f360e59f6cb98313ccbb27fecf82f667455acec33cf23ae115c2db121852700
-        with:
-          coverageCommand: bundle exec rake spec
       - name: standardrb
         if:   matrix.job == 'standardrb'
         run:  bundle exec rake standard
