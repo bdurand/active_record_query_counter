@@ -19,11 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: "3.0"
-        activerecord: "latest"
-        job: rspec
         combo:
           - activerecord: "latest"
+            ruby: "3.0"
           - activerecord: "6.1"
             ruby: "3.0"
           - activerecord: "6.0"
@@ -37,10 +35,17 @@ jobs:
           - activerecord: "4.2"
             ruby: "2.5"
             bundler: "1.17.3"
+        job: [ rspec ]
         include:
-          - job: rspec
+          - ruby: "3.0"
+            activerecord: "latest"
+            job: rspec
           - job: "coverage"
-          - job: standardrb
+            activerecord: "latest"
+            ruby: "3.0"
+          - ruby: "2.7"
+            activerecord: "latest"
+            job: standardrb
     steps:
       - name: checkout
         uses: actions/checkout@v2
