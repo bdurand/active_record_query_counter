@@ -28,7 +28,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "activerecord", ">= 4.2"
 
-  spec.add_development_dependency "bundler", "~>2.0"
-  spec.add_development_dependency "rspec", ["~> 3.0"]
-  spec.add_development_dependency "sqlite3"
+  spec.add_development_dependency "bundler"
 end

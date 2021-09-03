@@ -19,13 +19,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["2.6"]
-        activerecord: ["4.2", "5.0", "5.1", "5.2", "6.0"]
+        combo:
+          - activerecord: "latest"
+            ruby: "3.0"
+          - activerecord: "6.1"
+            ruby: "3.0"
+          - activerecord: "6.0"
+            ruby: "2.7"
+          - activerecord: "5.2"
+            ruby: "2.6"
+          - activerecord: "5.1"
+            ruby: "2.6"
+          - activerecord: "5.0"
+            ruby: "2.5"
+          - activerecord: "4.2"
+            ruby: "2.5"
+            bundler: "1.17.3"
         job: [ rspec ]
         include:
-          - ruby: "2.7"
+          - ruby: "3.0"
             activerecord: original
             job: rspec
+          - job: "coverage"
+            rails: "latest"
+            ruby: "3.0"
           - ruby: "2.7"
             job: standardrb
     steps:
@@ -35,17 +52,29 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
-      - name: inject activerecord ${{ matrix.activerecord }}
-        if:   matrix.activerecord != 'original' && matrix.activerecord != null
-        run: | # inject a specific version of activerecord into the Gemfile
+      - name: setup bundler
+        run: |
+          if [ "${{ matrix.combo.bundler }}" != "" ]; then
+            gem uninstall bundler --all
+            gem install bundler --no-document --version ${{ matrix.combo.bundler }}
+          fi
+          if [ "${{ matrix.combo.activerecord }}" != "latest" ]; then
+            echo "using gemfile gemfiles/activerecord_${{ matrix.combo.activerecord }}.gemfile"
+            bundle config set gemfile "gemfiles/activerecord_${{ matrix.combo.activerecord }}.gemfile"
+          fi
           bundle update
-          bundle exec appraisal generate
-          bundle config set gemfile "gemfiles/activerecord_${{ matrix.activerecord }}.gemfile"
       - name: install dependencies
         run:  bundle install
       - name: specs
         if:   matrix.job == 'rspec'
         run:  bundle exec rake spec
+      - name: code coverage
+        if:   matrix.job == 'coverage'
+        uses: paambaati/codeclimate-action@v2.7.5
+        env:
+          CC_TEST_REPORTER_ID: 8f360e59f6cb98313ccbb27fecf82f667455acec33cf23ae115c2db121852700
+        with:
+          coverageCommand: bundle exec rake spec
       - name: standardrb
         if:   matrix.job == 'standardrb'
         run:  bundle exec rake standard
