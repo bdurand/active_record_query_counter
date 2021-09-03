@@ -143,7 +143,7 @@ module ActiveRecordQueryCounter
   end
 
   module TransactionManagerExtension
-    def begin_transaction(*args)
+    def begin_transaction(*args, **kwargs)
       if open_transactions == 0
         @active_record_query_counter_transaction_start_time = Time.current
       end

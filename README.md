@@ -2,6 +2,7 @@
 
 ![Continuous Integration](https://github.com/bdurand/active_record_query_counter/workflows/Continuous%20Integration/badge.svg)
 [![Maintainability](https://api.codeclimate.com/v1/badges/21094ecec0c151983bb1/maintainability)](https://codeclimate.com/github/bdurand/active_record_query_counter/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/21094ecec0c151983bb1/test_coverage)](https://codeclimate.com/github/bdurand/active_record_query_counter/test_coverage)
 [![Ruby Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://github.com/testdouble/standard)
 
 This gem injects itself into ActiveRecord to count the number of queries, the number of rows returned, the amount of time spent on queries, the number of transactions, and the amount of time spent inside transactions within a block.

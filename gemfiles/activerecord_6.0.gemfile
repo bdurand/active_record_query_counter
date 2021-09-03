@@ -2,13 +2,12 @@
 
 source "https://rubygems.org"
 
-gem "activerecord", "~> 6.0.0"
+gem "rspec", "~> 3.0"
 gem "sqlite3", "~> 1.4.0"
-
-group :development, :test do
-  gem "rake"
-  gem "appraisal"
-  gem "standard", "~>0.8.1"
-end
+gem "rake"
+gem "appraisal"
+gem "standard", "~> 1.0"
+gem "simplecov", "~> 0.21", require: false
+gem "activerecord", "~> 6.0.0"
 
 gemspec path: "../"
