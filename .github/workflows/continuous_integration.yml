@@ -14,14 +14,16 @@ env:
   BUNDLE_RETRY: 3
 jobs:
   specs:
-    name: ${{ matrix.job }} ruby-${{ matrix.ruby }} ${{ matrix.activerecord && format('activerecord-{0}', matrix.activerecord) }}
+    name: ${{ matrix.job }} ruby-${{ matrix.combo.ruby || matrix.ruby }} ${{ matrix.combo.activerecord && format('activerecord-{0}', matrix.combo.activerecord) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        ruby: "3.0"
+        activerecord: "latest"
+        job: rspec
         combo:
           - activerecord: "latest"
-            ruby: "3.0"
           - activerecord: "6.1"
             ruby: "3.0"
           - activerecord: "6.0"
@@ -35,23 +37,17 @@ jobs:
           - activerecord: "4.2"
             ruby: "2.5"
             bundler: "1.17.3"
-        job: [ rspec ]
         include:
-          - ruby: "3.0"
-            activerecord: original
-            job: rspec
+          - job: rspec
           - job: "coverage"
-            rails: "latest"
-            ruby: "3.0"
-          - ruby: "2.7"
-            job: standardrb
+          - job: standardrb
     steps:
       - name: checkout
         uses: actions/checkout@v2
       - name: set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
+          ruby-version: ${{ matrix.combo.ruby || matrix.ruby }}
       - name: setup bundler
         run: |
           if [ "${{ matrix.combo.bundler }}" != "" ]; then
