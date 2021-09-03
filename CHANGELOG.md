@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 1.1.2
 ### Added
 * Ruby 3.0 compatibility
+### Removed
+* Dropped support for ActiveRecord 4.2
 
 ## 1.1.1
 ### Added
