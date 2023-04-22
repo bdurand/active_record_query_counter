@@ -12,62 +12,48 @@ env:
   BUNDLE_PATH: vendor/bundle
   BUNDLE_JOBS: 3
   BUNDLE_RETRY: 3
-  CC_TEST_REPORTER_ID: 8f360e59f6cb98313ccbb27fecf82f667455acec33cf23ae115c2db121852700
 jobs:
   specs:
-    name: ${{ matrix.job }} ruby-${{ matrix.combo.ruby || matrix.ruby }} ${{ matrix.combo.activerecord && format('activerecord-{0}', matrix.combo.activerecord) }}
+    name: Run specs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        combo:
-          - activerecord: "latest"
-            ruby: "3.0"
-            coverage: true
-          - activerecord: "6.1"
-            ruby: "3.0"
-          - activerecord: "6.0"
-            ruby: "2.7"
-          - activerecord: "5.2"
-            ruby: "2.6"
-          - activerecord: "5.1"
-            ruby: "2.6"
-          - activerecord: "5.0"
-            ruby: "2.5"
-        job: [ rspec ]
         include:
+          - ruby: "ruby"
+            standardrb: true
+          - ruby: "3.2"
+            appraisal: "activerecord_7.0"
+          - ruby: "3.1"
+            appraisal: "activerecord_6.1"
           - ruby: "3.0"
-            activerecord: "latest"
-            job: rspec
+            appraisal: "activerecord_6.0"
           - ruby: "2.7"
-            activerecord: "latest"
-            job: standardrb
+            appraisal: "activerecord_5.2"
+          - ruby: "2.6"
+            appraisal: "activerecord_5.1"
+          - ruby: "2.5"
+            appraisal: "activerecord_5.0"
+          - ruby: "2.5"
+            appraisal: "activerecord_4.2"
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v2
-      - name: set up Ruby
+      - name: Set up Ruby ${{ matrix.ruby }}
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.combo.ruby || matrix.ruby }}
-      - name: setup bundler
+          ruby-version: "${{ matrix.ruby }}"
+      - name: Set Appraisal bundle
+        if: matrix.appraisal != ''
         run: |
-          if [ "${{ matrix.combo.bundler }}" != "" ]; then
-            gem uninstall bundler --all
-            gem install bundler --no-document --version ${{ matrix.combo.bundler }}
-          fi
-          if [ "${{ matrix.combo.activerecord || matrix.activerecord }}" != "latest" ]; then
-            echo "using gemfile gemfiles/activerecord_${{ matrix.combo.activerecord || matrix.activerecord }}.gemfile"
-            bundle config set gemfile "gemfiles/activerecord_${{ matrix.combo.activerecord || matrix.activerecord }}.gemfile"
-          fi
+          echo "using gemfile gemfiles/${{ matrix.appraisal }}.gemfile"
+          bundle config set gemfile "gemfiles/${{ matrix.appraisal }}.gemfile"
+      - name: Install bundler
+        run: |
           bundle update
-      - name: install dependencies
-        run:  bundle install
-      - name: specs
-        if:   matrix.job == 'rspec'
-        run:  bundle exec rake spec
-      - name: code coverage
-        if:   matrix.coverage == true
-        uses: paambaati/codeclimate-action@v2.7.5
-      - name: standardrb
-        if:   matrix.job == 'standardrb'
+      - name: Run specs
+        run: |
+          bundle exec rake spec
+      - name: Run standardrb
+        if:   matrix.standardrb == true
         run:  bundle exec rake standard
