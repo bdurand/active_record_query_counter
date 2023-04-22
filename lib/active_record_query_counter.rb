@@ -133,10 +133,11 @@ module ActiveRecordQueryCounter
   # Module to prepend to the connection adapter to inject the counting behavior.
   module ConnectionAdapterExtension
     def exec_query(*args, **kwargs)
-      start_time = Time.now
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       result = super
       if result.is_a?(ActiveRecord::Result)
-        ActiveRecordQueryCounter.increment(result.length, Time.now - start_time)
+        elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+        ActiveRecordQueryCounter.increment(result.length, elapsed_time)
       end
       result
     end
