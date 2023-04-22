@@ -2,8 +2,10 @@ source "https://rubygems.org"
 
 gemspec
 
-group :development, :test do
-  gem "rake"
-  gem "appraisal"
-  gem "standard", "~>0.8.1"
-end
+gem "rspec", "~> 3.11"
+gem "sqlite3", ">= 1.3"
+gem "appraisal"
+gem "standard", "~>1.0"
+gem "simplecov", "~> 0.21", require: false
+gem "rake"
+gem "yard"

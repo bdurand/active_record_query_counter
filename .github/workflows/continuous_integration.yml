@@ -14,38 +14,46 @@ env:
   BUNDLE_RETRY: 3
 jobs:
   specs:
-    name: ${{ matrix.job }} ruby-${{ matrix.ruby }} ${{ matrix.activerecord && format('activerecord-{0}', matrix.activerecord) }}
+    name: Run specs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["2.6"]
-        activerecord: ["4.2", "5.0", "5.1", "5.2", "6.0"]
-        job: [ rspec ]
         include:
+          - ruby: "ruby"
+            standardrb: true
+          - ruby: "3.2"
+            appraisal: "activerecord_7.0"
+          - ruby: "3.1"
+            appraisal: "activerecord_6.1"
+          - ruby: "3.0"
+            appraisal: "activerecord_6.0"
           - ruby: "2.7"
-            activerecord: original
-            job: rspec
-          - ruby: "2.7"
-            job: standardrb
+            appraisal: "activerecord_5.2"
+          - ruby: "2.6"
+            appraisal: "activerecord_5.1"
+          - ruby: "2.5"
+            appraisal: "activerecord_5.0"
+          - ruby: "2.5"
+            appraisal: "activerecord_4.2"
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v2
-      - name: set up Ruby
+      - name: Set up Ruby ${{ matrix.ruby }}
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
-      - name: inject activerecord ${{ matrix.activerecord }}
-        if:   matrix.activerecord != 'original' && matrix.activerecord != null
-        run: | # inject a specific version of activerecord into the Gemfile
+          ruby-version: "${{ matrix.ruby }}"
+      - name: Set Appraisal bundle
+        if: matrix.appraisal != ''
+        run: |
+          echo "using gemfile gemfiles/${{ matrix.appraisal }}.gemfile"
+          bundle config set gemfile "gemfiles/${{ matrix.appraisal }}.gemfile"
+      - name: Install bundler
+        run: |
           bundle update
-          bundle exec appraisal generate
-          bundle config set gemfile "gemfiles/activerecord_${{ matrix.activerecord }}.gemfile"
-      - name: install dependencies
-        run:  bundle install
-      - name: specs
-        if:   matrix.job == 'rspec'
-        run:  bundle exec rake spec
-      - name: standardrb
-        if:   matrix.job == 'standardrb'
+      - name: Run specs
+        run: |
+          bundle exec rake spec
+      - name: Run standardrb
+        if:   matrix.standardrb == true
         run:  bundle exec rake standard

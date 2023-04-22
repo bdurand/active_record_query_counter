@@ -132,7 +132,7 @@ module ActiveRecordQueryCounter
 
   # Module to prepend to the connection adapter to inject the counting behavior.
   module ConnectionAdapterExtension
-    def exec_query(*args)
+    def exec_query(*args, **kwargs)
       start_time = Time.now
       result = super
       if result.is_a?(ActiveRecord::Result)
@@ -143,14 +143,14 @@ module ActiveRecordQueryCounter
   end
 
   module TransactionManagerExtension
-    def begin_transaction(*args)
+    def begin_transaction(*args, **kwargs)
       if open_transactions == 0
         @active_record_query_counter_transaction_start_time = Time.current
       end
       super
     end
 
-    def commit_transaction(*args)
+    def commit_transaction(*args, **kwargs)
       if @active_record_query_counter_transaction_start_time && open_transactions == 1
         ActiveRecordQueryCounter.increment_transaction(Time.current - @active_record_query_counter_transaction_start_time)
         @active_record_query_counter_transaction_start_time = nil
@@ -158,7 +158,7 @@ module ActiveRecordQueryCounter
       super
     end
 
-    def rollback_transaction(*args)
+    def rollback_transaction(*args, **kwargs)
       if @active_record_query_counter_transaction_start_time && open_transactions == 1
         ActiveRecordQueryCounter.increment_transaction(Time.current - @active_record_query_counter_transaction_start_time)
         @active_record_query_counter_transaction_start_time = nil
