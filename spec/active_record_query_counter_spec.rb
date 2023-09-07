@@ -135,13 +135,13 @@ describe ActiveRecordQueryCounter do
 
         transactions = ActiveRecordQueryCounter.transactions
         expect(transactions.size).to eq 3
-        expect(transactions.values.collect(&:count)).to eq [1, 3, 1]
-        expect(transactions.values.sum(&:elapsed_time)).to eq ActiveRecordQueryCounter.transaction_time
+        expect(transactions.collect(&:count)).to eq [1, 3, 1]
+        expect(transactions.sum(&:elapsed_time)).to eq ActiveRecordQueryCounter.transaction_time
         expect(ActiveRecordQueryCounter.transaction_time).to be < ActiveRecordQueryCounter.single_transaction_time
 
         lib_dir = File.expand_path("../../lib", __FILE__)
-        transactions.keys.each do |trace|
-          expect(trace.first.start_with?(lib_dir)).to eq false
+        transactions.each do |info|
+          expect(info.trace.first.start_with?(lib_dir)).to eq false
         end
       end
     end

@@ -37,6 +37,7 @@ module ActiveRecordQueryCounter
     # @param row_count [Integer] the number of rows returned by the query
     # @param elapsed_time [Float] the time spent executing the query
     # @return [void]
+    # @api private
     def increment(row_count, elapsed_time)
       counter = Thread.current[:database_query_counter]
       if counter.is_a?(Counter)
@@ -51,6 +52,7 @@ module ActiveRecordQueryCounter
     # @param start_time [Float] the time the transaction started
     # @param end_time [Float] the time the transaction ended
     # @return [void]
+    # @api private
     def increment_transaction(start_time, end_time)
       counter = Thread.current[:database_query_counter]
       if counter.is_a?(Counter)
@@ -65,12 +67,15 @@ module ActiveRecordQueryCounter
         info = counter.transactions[trace]
         if info
           info.count += 1
+          info.elapsed_time += end_time - start_time
           info.end_time = end_time
         else
           info = TransactionInfo.new
           info.count = 1
           info.start_time = start_time
           info.end_time = end_time
+          info.elapsed_time = end_time - start_time
+          info.trace = trace
           counter.transactions[trace] = info
         end
       end
@@ -137,7 +142,7 @@ module ActiveRecordQueryCounter
     # @return [Array<ActiveRecordQueryCounter::TransactionInfo>, nil]
     def transactions
       counter = Thread.current[:database_query_counter]
-      counter.transactions.dup if counter.is_a?(Counter)
+      counter.transactions.values if counter.is_a?(Counter)
     end
 
     # Return the query info as a hash with keys :query_count, :row_count, :query_time
