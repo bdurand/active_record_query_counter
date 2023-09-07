@@ -30,12 +30,31 @@ module ActiveRecordQueryCounter
     end
 
     # Return the total time spent in transactions that have been tracked by the counter.
+    #
+    # @return [Float]
     def transaction_time
       @transactions.values.sum(&:elapsed_time)
     end
+
+    # Return that would have been spent inside a transaction if all transactions tracked
+    # by the counter were nested inside a single transaction. For example, if the counter
+    # tracked two transactions, one that took 1 second, one that took 2 seconds, and with
+    # 3 seconds between them, this method would return 6 seconds. This information is useful
+    # for determining the impact of wrapping code in a single transaction. It is usually best
+    # to wrap multiple updates in a single transaction to maintain data integrity. However,
+    # if the updates are spread out over a longer period of time, it may be better to leave
+    # them outside of a transaction so that you don't hold locks on rows for too long.
+    #
+    # @return [Float]
+    def single_transaction_time
+      return 0.0 if @transactions.empty?
+
+      @transactions.last.end_time - @transactions.first.start_time
+    end
   end
 
-  # Data structure for storing information about a transaction.
+  # Data structure for storing information about a transaction. Note that the start and end
+  # times are monotonic time and not wall clock time.
   class TransactionInfo
     attr_accessor :count, :start_time, :end_time
 
@@ -67,7 +86,7 @@ module ActiveRecordQueryCounter
       end
     end
 
-    # Increment the query counters
+    # Increment the query counters.
     #
     # @param row_count [Integer] the number of rows returned by the query
     # @param elapsed_time [Float] the time spent executing the query
@@ -154,6 +173,16 @@ module ActiveRecordQueryCounter
     def transaction_time
       counter = Thread.current[:database_query_counter]
       counter.transaction_time if counter.is_a?(Counter)
+    end
+
+    # Return the total time that would have been spent in transactions if all transactions
+    # tracked by the counter were nested inside a single transaction. See {Counter#single_transaction_time}
+    # for more information. Returns nil if not inside a block where queries are being counted.
+    #
+    # @return [Float, nil]
+    def single_transaction_time
+      counter = Thread.current[:database_query_counter]
+      counter.single_transaction_time if counter.is_a?(Counter)
     end
 
     # Return an array of transaction information for any transactions that have been counted
