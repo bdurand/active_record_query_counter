@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Calculate elapsed time using monotonic time rather than wall clock time.
 - Added method to get the amount of time a single transaction could have taken if it was used to wrap multiple updates.
-- Breaking change: transaction information is now returned in a `ActiveRecordQueryCounter::TransactionInfo` object rather than an array.
+- Breaking change: transaction information is now returned in a `ActiveRecordQueryCounter::TransactionInfo` objects rather than as a hash of arrays.
 
 ## 1.1.2
 
