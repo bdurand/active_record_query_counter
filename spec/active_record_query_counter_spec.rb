@@ -139,7 +139,7 @@ describe ActiveRecordQueryCounter do
         expect(transactions.sum(&:elapsed_time)).to eq ActiveRecordQueryCounter.transaction_time
         expect(ActiveRecordQueryCounter.transaction_time).to be < ActiveRecordQueryCounter.single_transaction_time
 
-        lib_dir = File.expand_path("../../lib", __FILE__)
+        lib_dir = File.expand_path(File.join(__dir__, "..", "lib"))
         transactions.each do |info|
           expect(info.trace.first.start_with?(lib_dir)).to eq false
         end
