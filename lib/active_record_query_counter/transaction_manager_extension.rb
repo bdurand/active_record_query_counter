@@ -13,7 +13,7 @@ module ActiveRecordQueryCounter
     def commit_transaction(*args)
       if @active_record_query_counter_transaction_start_time && open_transactions == 1
         end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        ActiveRecordQueryCounter.increment_transaction(@active_record_query_counter_transaction_start_time, end_time)
+        ActiveRecordQueryCounter.add_transaction(@active_record_query_counter_transaction_start_time, end_time)
         @active_record_query_counter_transaction_start_time = nil
       end
       super
@@ -22,7 +22,7 @@ module ActiveRecordQueryCounter
     def rollback_transaction(*args)
       if @active_record_query_counter_transaction_start_time && open_transactions == 1
         end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        ActiveRecordQueryCounter.increment_transaction(@active_record_query_counter_transaction_start_time, end_time)
+        ActiveRecordQueryCounter.add_transaction(@active_record_query_counter_transaction_start_time, end_time)
         @active_record_query_counter_transaction_start_time = nil
       end
       super

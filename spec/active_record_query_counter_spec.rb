@@ -134,8 +134,9 @@ describe ActiveRecordQueryCounter do
         end
 
         transactions = ActiveRecordQueryCounter.transactions
-        expect(transactions.size).to eq 3
-        expect(transactions.collect(&:count)).to eq [1, 3, 1]
+        expect(transactions.size).to eq 5
+        expect(transactions[0].trace).to_not eq transactions[1].trace
+        expect(transactions[1].trace).to eq transactions[2].trace
         expect(transactions.sum(&:elapsed_time)).to eq ActiveRecordQueryCounter.transaction_time
         expect(ActiveRecordQueryCounter.transaction_time).to be < ActiveRecordQueryCounter.single_transaction_time
 
@@ -144,6 +145,113 @@ describe ActiveRecordQueryCounter do
           expect(info.trace.first.start_with?(lib_dir)).to eq false
         end
       end
+    end
+  end
+
+  describe "notifications" do
+    it "sends a notification when the query count exceeds the threshold" do
+      ActiveRecordQueryCounter.query_time_threshold = 0
+      notifications = capture_notifications("active_record_query_counter.query_time") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.all.to_a
+        end
+      end
+      expect(notifications.size).to eq 1
+      expect(notifications.first[:sql]).to eq(TestModel.all.to_sql)
+      expect(notifications.first[:trace]).to_not be_nil
+    ensure
+      ActiveRecordQueryCounter.query_time_threshold = nil
+    end
+
+    it "does not send a notification when the query count does not exceed the threshold" do
+      ActiveRecordQueryCounter.query_time_threshold = 5
+      notifications = capture_notifications("active_record_query_counter.query_time") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.all.to_a
+        end
+      end
+      expect(notifications).to be_empty
+    ensure
+      ActiveRecordQueryCounter.query_time_threshold = nil
+    end
+
+    it "sends a notification when the row count exceeds the threshold" do
+      ActiveRecordQueryCounter.row_count_threshold = 2
+      notifications = capture_notifications("active_record_query_counter.row_count") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.all.to_a
+        end
+      end
+      expect(notifications.size).to eq 1
+      expect(notifications.first[:sql]).to eq(TestModel.all.to_sql)
+      expect(notifications.first[:row_count]).to eq 3
+      expect(notifications.first[:trace]).to_not be_nil
+    ensure
+      ActiveRecordQueryCounter.row_count_threshold = nil
+    end
+
+    it "does not send a notification when the row count does not exceed the threshold" do
+      ActiveRecordQueryCounter.row_count_threshold = 5
+      notifications = capture_notifications("active_record_query_counter.row_count") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.all.to_a
+        end
+      end
+      expect(notifications).to be_empty
+    ensure
+      ActiveRecordQueryCounter.row_count_threshold = nil
+    end
+
+    it "sends a notification when the transaction time exceeds the threshold" do
+      ActiveRecordQueryCounter.transaction_time_threshold = 0
+      notifications = capture_notifications("active_record_query_counter.transaction_time") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.create!(name: "new")
+        end
+      end
+      expect(notifications.size).to eq 1
+      expect(notifications.first[:trace]).to_not be_nil
+    ensure
+      ActiveRecordQueryCounter.transaction_time_threshold = nil
+    end
+
+    it "does not send a notification when the transaction time does not exceed the threshold" do
+      ActiveRecordQueryCounter.transaction_time_threshold = 5
+      notifications = capture_notifications("active_record_query_counter.transaction_time") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.create!(name: "new")
+        end
+      end
+      expect(notifications).to be_empty
+    ensure
+      ActiveRecordQueryCounter.transaction_time_threshold = nil
+    end
+
+    it "sends a notification when the transaction count exceeds the threshold" do
+      ActiveRecordQueryCounter.transaction_count_threshold = 1
+      notifications = capture_notifications("active_record_query_counter.transaction_count") do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.create!(name: "new 1")
+          TestModel.create!(name: "new 2")
+        end
+      end
+      expect(notifications.size).to eq 1
+      expect(notifications.first[:transaction_count]).to eq 2
+      expect(notifications.first[:trace]).to_not be_nil
+    ensure
+      ActiveRecordQueryCounter.transaction_count_threshold = nil
+    end
+
+    it "does not send a notification when the transaction count does not exceed the threshold" do
+      ActiveRecordQueryCounter.transaction_count_threshold = 5
+      notifications = capture_notifications("active_record_query_counter.transaction_count") do
+        ActiveRecordQueryCounter.count_queries do
+          ActiveRecord::Base.transaction { true }
+        end
+      end
+      expect(notifications).to be_empty
+    ensure
+      ActiveRecordQueryCounter.transaction_count_threshold = nil
     end
   end
 end

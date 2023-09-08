@@ -6,11 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 2.0.0
 
+### Added
+
+- Added capability to send ActiveSupport notifications when query thresholds are exceeded.
+
 ### Changed
 
 - Calculate elapsed time using monotonic time rather than wall clock time.
-- Added method to get the amount of time a single transaction could have taken if it was used to wrap multiple updates.
-- Breaking change: transaction information is now returned in a `ActiveRecordQueryCounter::TransactionInfo` objects rather than as a hash of arrays.
+- Schema queries to get the table structure and explain plan queries are no longer counted.
+- **Breaking change**: transaction information is now returned in an array of `ActiveRecordQueryCounter::TransactionInfo` objects.
+- **Breaking change**: internal API for tracking queries and transactions has changed
 
 ## 1.1.2
 

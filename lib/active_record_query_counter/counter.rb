@@ -4,45 +4,70 @@ module ActiveRecordQueryCounter
   # Data structure for storing query information encountered within a block.
   class Counter
     attr_accessor :query_count, :row_count, :query_time
-    attr_reader :transactions
 
     def initialize
       @query_count = 0
       @row_count = 0
       @query_time = 0.0
-      @transactions = {}
+      @transactions_hash = {}
+    end
+
+    # Return an array of transaction information for any transactions that have been tracked
+    # by the counter.
+    #
+    # @return [Array<ActiveRecordQueryCounter::TransactionInfo>]
+    def transactions
+      @transactions_hash.values.flatten.sort_by(&:start_time)
+    end
+
+    # Add a tracked transaction.
+    #
+    # @param trace [Array<String>] the trace of the transaction
+    # @param start_time [Float] the monotonic time when the transaction began
+    # @param end_time [Float] the monotonic time when the transaction ended
+    # @return [void]
+    # @api private
+    def add_transaction(trace:, start_time:, end_time:)
+      trace_transactions = @transactions_hash[trace]
+      if trace_transactions
+        # Memory optimization so that we don't store duplicate traces for every transaction in a loop.
+        trace = trace_transactions.first.trace
+      else
+        trace_transactions = []
+        @transactions_hash[trace] = trace_transactions
+      end
+
+      trace_transactions << TransactionInfo.new(start_time: start_time, end_time: end_time, trace: trace)
     end
 
     # Return the number of transactions that have been tracked by the counter.
     #
     # @return [Integer]
     def transaction_count
-      @transactions.size
+      @transactions_hash.values.flatten.size
     end
 
     # Return the total time spent in transactions that have been tracked by the counter.
     #
     # @return [Float]
     def transaction_time
-      @transactions.values.sum(&:elapsed_time)
+      @transactions_hash.values.flatten.sum(&:elapsed_time)
     end
 
-    # Return that would have been spent inside a transaction if all transactions tracked
-    # by the counter were nested inside a single transaction. For example, if the counter
-    # tracked two transactions, one that took 1 second, one that took 2 seconds, and with
-    # 3 seconds between them, this method would return 6 seconds. This information is useful
-    # for determining the impact of wrapping code in a single transaction. It is usually best
-    # to wrap multiple updates in a single transaction to maintain data integrity. However,
-    # if the updates are spread out over a longer period of time, it may be better to leave
-    # them outside of a transaction so that you don't hold locks on rows for too long.
+    # Get the time when the first transaction began.
     #
-    # @return [Float]
-    def single_transaction_time
-      return 0.0 if @transactions.empty?
+    # @return [Float, nil] the monotonic time when the first transaction began,
+    #   or nil if no transactions have been tracked
+    def first_transaction_start_time
+      transactions.first&.start_time
+    end
 
-      start_time = @transactions.values.collect(&:start_time).min
-      end_time = @transactions.values.collect(&:end_time).max
-      end_time - start_time
+    # Get the time when the last transaction completed.
+    #
+    # @return [Float, nil] the monotonic time when the first transaction completed,
+    #   or nil if no transactions have been tracked
+    def last_transaction_end_time
+      transactions.max_by(&:end_time)&.end_time
     end
   end
 end

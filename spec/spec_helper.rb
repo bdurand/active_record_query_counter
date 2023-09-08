@@ -28,3 +28,22 @@ class TestModel < ActiveRecord::Base
     end
   end
 end
+
+def capture_notifications(name)
+  payloads = []
+
+  subscription = ActiveSupport::Notifications.subscribe(name) do |*args|
+    event = ActiveSupport::Notifications::Event.new(*args)
+    payloads << event.payload
+  end
+
+  yield
+
+  ActiveSupport::Notifications.unsubscribe(subscription)
+
+  payloads
+end
+
+RSpec.configure do |config|
+  config.order = :random
+end
