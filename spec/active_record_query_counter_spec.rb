@@ -236,8 +236,7 @@ describe ActiveRecordQueryCounter do
         end
       end
       expect(notifications.size).to eq 1
-      expect(notifications.first[:transaction_count]).to eq 2
-      expect(notifications.first[:trace]).to_not be_nil
+      expect(notifications.first[:transactions].size).to eq 2
     ensure
       ActiveRecordQueryCounter.transaction_count_threshold = nil
     end

@@ -42,7 +42,7 @@ module ActiveRecordQueryCounter
             "active_record_query_counter.transaction_count",
             counter.first_transaction_start_time,
             counter.last_transaction_end_time,
-            transaction_count: counter.transaction_count
+            transactions: counter.transactions
           )
         end
 
@@ -70,11 +70,26 @@ module ActiveRecordQueryCounter
       counter.query_time += elapsed_time
 
       if query_time_threshold && elapsed_time >= query_time_threshold
-        send_notification("active_record_query_counter.query_time", start_time, end_time, sql: sql, binds: binds)
+        send_notification(
+          "active_record_query_counter.query_time",
+          start_time,
+          end_time,
+          sql: sql,
+          binds: binds,
+          trace: backtrace
+        )
       end
 
       if row_count_threshold && row_count >= row_count_threshold
-        send_notification("active_record_query_counter.row_count", start_time, end_time, sql: sql, binds: binds, row_count: row_count)
+        send_notification(
+          "active_record_query_counter.row_count",
+          start_time,
+          end_time,
+          sql: sql,
+          binds: binds,
+          row_count: row_count,
+          trace: backtrace
+        )
       end
     end
 
@@ -87,18 +102,17 @@ module ActiveRecordQueryCounter
     def add_transaction(start_time, end_time)
       counter = Thread.current[:database_query_counter]
       if counter.is_a?(Counter)
-        trace = caller
-        index = 0
-        caller.each do |line|
-          break unless line.start_with?(__dir__)
-          index += 1
-        end
-        trace = trace[index, trace.length]
+        trace = backtrace
         counter.add_transaction(trace: trace, start_time: start_time, end_time: end_time)
       end
 
       if transaction_time_threshold && end_time - start_time >= transaction_time_threshold
-        send_notification("active_record_query_counter.transaction_time", start_time, end_time)
+        send_notification(
+          "active_record_query_counter.transaction_time",
+          start_time,
+          end_time,
+          trace: backtrace
+        )
       end
     end
 
@@ -223,8 +237,11 @@ module ActiveRecordQueryCounter
 
     def send_notification(name, start_time, end_time, payload = {})
       id = "#{name}-#{SecureRandom.hex}"
-      trace = caller.reject { |line| line.start_with?(__dir__) }
-      ActiveSupport::Notifications.publish(name, start_time, end_time, id, payload.merge(trace: trace))
+      ActiveSupport::Notifications.publish(name, start_time, end_time, id, payload)
+    end
+
+    def backtrace
+      caller.reject { |line| line.start_with?(__dir__) }
     end
   end
 end

@@ -70,9 +70,9 @@ The notifications payloads will contain details about the query or transaction t
 - `active_record_query_counter.query_time` - `:sql`, `:binds`, `:trace`
 - `active_record_query_counter.row_count` - `:sql`, `:binds`, `:row_count`, `:trace`
 - `active_record_query_counter.transaction_time` - `:trace`
-- `active_record_query_counter.transaction_count` - `:transaction_count`, `:trace`
+- `active_record_query_counter.transaction_count` - `:transactions` (array of `ActiveRecordQueryCounter::TransactionInfo`)`
 
-The `:trace` payload is the stack trace of where the query was executed or transaction completed.
+The `:trace` payload is the stack trace of where the query was executed or transaction completed. In the case of the `active_record_query_counter.transaction_count` notification, the stack trace is available on each of the items in the `:transactions` element.
 
 ```ruby
 ActiveRecordQueryCounter.query_time_threshold = 1.0 # seconds
