@@ -32,12 +32,13 @@ describe ActiveRecordQueryCounter::SidekiqMiddleware do
     row_count = nil
     transaction_time = nil
     transaction_count = nil
-    middleware.call(:worker, {"active_record_query_counter" => {
-      "query_time_threshold" => 1.5,
-      "row_count_threshold" => 100,
-      "transaction_time_threshold" => 2.5,
-      "transaction_count_threshold" => 1
-    }}, "queue") do
+    threshold_options = {
+      "query_time" => 1.5,
+      "row_count" => 100,
+      "transaction_time" => 2.5,
+      "transaction_count" => 1
+    }
+    middleware.call(:worker, {"active_record_query_counter" => {"thresholds" => threshold_options}}, "queue") do
       t = ActiveRecordQueryCounter.thresholds
       query_time = t.query_time
       row_count = t.row_count

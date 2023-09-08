@@ -21,5 +21,11 @@ module ActiveRecordQueryCounter
     def transaction_count=(value)
       @transaction_count = value&.to_i
     end
+
+    def attributes=(attributes)
+      attributes.each do |key, value|
+        public_send("#{key}=", value)
+      end
+    end
   end
 end

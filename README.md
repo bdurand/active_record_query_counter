@@ -64,6 +64,7 @@ This notification is triggered when a query takes longer than the `query_time` t
 
 - `:sql` - The SQL statement that was executed.
 - `:binds` - The bind parameters that were used.
+- `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
 
 #### active_record_query_counter.row_count notification
@@ -109,6 +110,40 @@ ActiveRecordQueryCounter.count_queries do
   ActiveRecordQueryCounter.thresholds.transaction_time = 2.0
   ActiveRecordQueryCounter.thresholds.transaction_count = 1
 end
+```
+
+You can also pass thresholds to individual Sidekiq workers.
+
+```ruby
+class MyWorker
+  include Sidekiq::Worker
+
+  sidekiq_options(
+    active_record_query_counter: {
+      thresholds: {
+        query_time: 1.0,
+        row_count: 100,
+        transaction_time: 2.0,
+        transaction_count: 1
+      }
+    }
+  )
+
+  def perform
+    do_something
+  end
+end
+```
+
+You can also set separate thresholds on the Rack middleware when you install it.
+
+```ruby
+Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware, thresholds: {
+  query_time: 1.0,
+  row_count: 100,
+  transaction_time: 2.0,
+  transaction_count: 1
+})
 ```
 
 #### Example

@@ -36,7 +36,7 @@ describe ActiveRecordQueryCounter::RackMiddleware do
       [200, headers, ["OK"]]
     end
 
-    middleware = ActiveRecordQueryCounter::RackMiddleware.new(app, query_time_threshold: 1.5, row_count_threshold: 100, transaction_time_threshold: 2.5, transaction_count_threshold: 1)
+    middleware = ActiveRecordQueryCounter::RackMiddleware.new(app, thresholds: {query_time: 1.5, row_count: 100, transaction_time: 2.5, transaction_count: 1})
     result = middleware.call("foo" => "bar")
     expect(result[1]).to eq({
       "query_time" => 1.5,

@@ -157,6 +157,8 @@ describe ActiveRecordQueryCounter do
       end
       expect(notifications.size).to eq 1
       expect(notifications.first[:sql]).to eq(TestModel.all.to_sql)
+      expect(notifications.first[:binds]).to be_a(Array)
+      expect(notifications.first[:row_count]).to eq 3
       expect(notifications.first[:trace]).to be_a(Array)
       expect(notifications.first[:duration]).to be > 0
     end
@@ -180,6 +182,7 @@ describe ActiveRecordQueryCounter do
       end
       expect(notifications.size).to eq 1
       expect(notifications.first[:sql]).to eq(TestModel.all.to_sql)
+      expect(notifications.first[:binds]).to be_a(Array)
       expect(notifications.first[:row_count]).to eq 3
       expect(notifications.first[:trace]).to be_a(Array)
       expect(notifications.first[:duration]).to be > 0

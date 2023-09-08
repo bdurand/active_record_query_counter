@@ -65,14 +65,17 @@ module ActiveRecordQueryCounter
       counter.row_count += row_count
       counter.query_time += elapsed_time
 
+      trace = nil
       query_time_threshold = (counter.thresholds.query_time || -1)
       if query_time_threshold >= 0 && elapsed_time >= query_time_threshold
-        send_notification("query_time", start_time, end_time, sql: sql, binds: binds, trace: backtrace)
+        trace = backtrace
+        send_notification("query_time", start_time, end_time, sql: sql, binds: binds, row_count: row_count, trace: trace)
       end
 
       row_count_threshold = (counter.thresholds.row_count || -1)
       if row_count_threshold >= 0 && row_count >= row_count_threshold
-        send_notification("row_count", start_time, end_time, sql: sql, binds: binds, row_count: row_count, trace: backtrace)
+        trace ||= backtrace
+        send_notification("row_count", start_time, end_time, sql: sql, binds: binds, row_count: row_count, trace: trace)
       end
     end
 

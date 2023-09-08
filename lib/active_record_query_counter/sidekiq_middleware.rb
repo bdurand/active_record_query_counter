@@ -2,6 +2,25 @@
 
 module ActiveRecordQueryCounter
   # Sidekiq middleware to count queries on a job.
+  #
+  # Notification thresholds can be set per worker with the `active_record_query_counter.thresholds` key in the
+  # `sidekiq_options` hash. Valid keys are:
+  # * `:query_time` - The minimum query time to send a notification for.
+  # * `:row_count` - The minimum row count to send a notification for.
+  # * `:transaction_time` - The minimum transaction time to send a notification for.
+  # * `:transaction_count` - The minimum transaction count to send a notification for.
+  #
+  # @example
+  #
+  #   class MyWorker
+  #     include Sidekiq::Worker
+  #
+  #     sidekiq_options active_record_query_counter: {thresholds: {query_time: 1.5}}
+  #
+  #     def perform
+  #       # ...
+  #     end
+  #   end
   class SidekiqMiddleware
     if defined?(Sidekiq::ServerMiddleware)
       include Sidekiq::ServerMiddleware
@@ -9,13 +28,9 @@ module ActiveRecordQueryCounter
 
     def call(job_instance, job_payload, queue)
       ActiveRecordQueryCounter.count_queries do
-        options = job_payload["active_record_query_counter"]
-        if options.is_a?(Hash)
-          thresholds = ActiveRecordQueryCounter.thresholds
-          thresholds.query_time = options["query_time_threshold"] if options.key?("query_time_threshold")
-          thresholds.row_count = options["row_count_threshold"] if options.key?("row_count_threshold")
-          thresholds.transaction_time = options["transaction_time_threshold"] if options.key?("transaction_time_threshold")
-          thresholds.transaction_count = options["transaction_count_threshold"] if options.key?("transaction_count_threshold")
+        thresholds = job_payload.dig("active_record_query_counter", "thresholds")
+        if thresholds.is_a?(Hash)
+          ActiveRecordQueryCounter.thresholds.attributes = thresholds
         end
 
         yield
