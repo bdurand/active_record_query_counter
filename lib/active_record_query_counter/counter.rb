@@ -4,12 +4,14 @@ module ActiveRecordQueryCounter
   # Data structure for storing query information encountered within a block.
   class Counter
     attr_accessor :query_count, :row_count, :query_time
+    attr_reader :thresholds
 
     def initialize
       @query_count = 0
       @row_count = 0
       @query_time = 0.0
       @transactions_hash = {}
+      @thresholds = ActiveRecordQueryCounter.global_thresholds.dup
     end
 
     # Return an array of transaction information for any transactions that have been tracked

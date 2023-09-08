@@ -58,49 +58,90 @@ end
 
 You can also subscribe to ActiveSupport notifications to get notified when query thresholds are exceeded.
 
-Thresholds are set using class attributes on `ActiveRecordQueryCounter`. By default none of the thresholds are set and no notifications will be sent.
+#### active_record_query_counter.query_time notification
 
-- `query_time_threshold` - Queries that take over this time will trigger a `active_record_query_counter.query_time` notification.
-- `row_count_threshold` - Queries that return more than this number of rows will trigger a `active_record_query_counter.row_count` notification.
-- `transaction_time_threshold` - Transactions that take over this time will trigger a `active_record_query_counter.transaction_time` notification.
-- `transaction_count_threshold` - Blocks that contain more than this number of transactions will trigger a `active_record_query_counter.transaction_count` notification.
+This notification is triggered when a query takes longer than the `query_time` threshold. The payload contains the following keys:
 
-The notifications payloads will contain details about the query or transaction that triggered the notification. The payload keys are:
+- `:sql` - The SQL statement that was executed.
+- `:binds` - The bind parameters that were used.
+- `:trace` - The stack trace of where the query was executed.
 
-- `active_record_query_counter.query_time` - `:sql`, `:binds`, `:trace`
-- `active_record_query_counter.row_count` - `:sql`, `:binds`, `:row_count`, `:trace`
-- `active_record_query_counter.transaction_time` - `:trace`
-- `active_record_query_counter.transaction_count` - `:transactions` (array of `ActiveRecordQueryCounter::TransactionInfo`)`
+#### active_record_query_counter.row_count notification
 
-The `:trace` payload is the stack trace of where the query was executed or transaction completed. In the case of the `active_record_query_counter.transaction_count` notification, the stack trace is available on each of the items in the `:transactions` element.
+This notification is triggered when a query returns more rows than the `row_count` threshold. The payload contains the following keys:
+
+- `:sql` - The SQL statement that was executed.
+- `:binds` - The bind parameters that were used.
+- `:row_count` - The number of rows returned.
+- `:trace` - The stack trace of where the query was executed.
+
+#### active_record_query_counter.transaction_time notification
+
+This notification is triggered when a transaction takes longer than the `transaction_time` threshold. The payload contains the following keys:
+
+- `:trace` - The stack trace of where the transaction was committed.
+
+#### active_record_query_counter.transaction_count notification
+
+This notification is triggered when a transaction takes longer than the `transaction_count` threshold. The payload contains the following keys:
+
+- `:transactions` - An array of `ActiveRecordQueryCounter::TransactionInfo` objects.
+
+The duration of the notification event is the time between with the first transaction was started and the last transaction was completed.
+
+#### Thresholds
+
+The thresholds for triggering notifications can either be set globally:
 
 ```ruby
-ActiveRecordQueryCounter.query_time_threshold = 1.0 # seconds
+ActiveRecordQueryCounter.global_thresholds.query_time = 2.0
+ActiveRecordQueryCounter.global_thresholds.row_count = 1000
+ActiveRecordQueryCounter.global_thresholds.transaction_time = 5.0
+ActiveRecordQueryCounter.global_thresholds.transaction_count = 2
+```
+
+Or they can be set locally just inside a `count_queries` block:
+
+```ruby
+ActiveRecordQueryCounter.count_queries do
+  ActiveRecordQueryCounter.thresholds.query_time = 1.0
+  ActiveRecordQueryCounter.thresholds.row_count = 100
+  ActiveRecordQueryCounter.thresholds.transaction_time = 2.0
+  ActiveRecordQueryCounter.thresholds.transaction_count = 1
+end
+```
+
+#### Example
+
+```ruby
+ActiveRecordQueryCounter.global_thresholds.query_time = 1.0
 ActiveSupport::Notifications.subscribe('active_record_query_counter.query_time') do |name, start, finish, id, payload|
   elapsed_time = finish - start
   puts "Query time exceeded (#{elasped_time}s): #{payload[:sql]}"
   puts payload[:trace].join("\n")
 end
 
-ActiveRecordQueryCounter.row_count_threshold = 1000
+ActiveRecordQueryCounter.global_thresholds.row_count = 1000
 ActiveSupport::Notifications.subscribe('active_record_query_counter.row_count') do |name, start, finish, id, payload|
   elapsed = finish - start
   puts "Row count exceeded (#{payload[:row_count]} rows): #{payload[:sql]}"
   puts payload[:trace].join("\n")
 end
 
-ActiveRecordQueryCounter.transaction_time_threshold = 2.0 # seconds
+ActiveRecordQueryCounter.global_thresholds.transaction_time = 2.0
 ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_time') do |name, start, finish, id, payload|
   elapsed_time = finish - start
   puts "Transaction time exceeded (#{elasped_time}s)"
   puts payload[:trace].join("\n")
 end
 
-ActiveRecordQueryCounter.transaction_count_threshold = 1
+ActiveRecordQueryCounter.global_thresholds.transaction_count = 1
 ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_count') do |name, start, finish, id, payload|
   elapsed_time = finish - start
-  puts "Transaction count exceeded (#{payload[:transaction_count] transactions in #{elasped_time}s)"
-  puts payload[:trace].join("\n")
+  puts "Transaction count exceeded (#{payload[:transactions].size} transactions in #{elasped_time}s)"
+  payload[:transactions].each do |info|
+    puts info.trace.join("\n")
+  end
 end
 ```
 

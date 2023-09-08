@@ -34,7 +34,7 @@ def capture_notifications(name)
 
   subscription = ActiveSupport::Notifications.subscribe(name) do |*args|
     event = ActiveSupport::Notifications::Event.new(*args)
-    payloads << event.payload
+    payloads << event.payload.merge(duration: event.duration)
   end
 
   yield
