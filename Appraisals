@@ -10,3 +10,12 @@ RAILS_MINOR_RELEASES.each do |version|
     end
   end
 end
+
+appraise "without-sidekiq" do
+  remove_gem "sidekiq"
+end
+
+appraise "sidekiq-6" do
+  gem "sidekiq", "~> 6.0"
+  gem "activerecord", "~> 6.0"
+end
