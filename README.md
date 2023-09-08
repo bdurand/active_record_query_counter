@@ -91,16 +91,16 @@ The duration of the notification event is the time between with the first transa
 
 #### Thresholds
 
-The thresholds for triggering notifications can either be set globally:
+The thresholds for triggering notifications can be set globally:
 
 ```ruby
-ActiveRecordQueryCounter.global_thresholds.query_time = 2.0
-ActiveRecordQueryCounter.global_thresholds.row_count = 1000
-ActiveRecordQueryCounter.global_thresholds.transaction_time = 5.0
-ActiveRecordQueryCounter.global_thresholds.transaction_count = 2
+ActiveRecordQueryCounter.default_thresholds.query_time = 2.0
+ActiveRecordQueryCounter.default_thresholds.row_count = 1000
+ActiveRecordQueryCounter.default_thresholds.transaction_time = 5.0
+ActiveRecordQueryCounter.default_thresholds.transaction_count = 2
 ```
 
-Or they can be set locally just inside a `count_queries` block:
+They can be set locally inside a `count_queries` block. The local thresholds will override the global thresholds only inside the block.
 
 ```ruby
 ActiveRecordQueryCounter.count_queries do
@@ -114,28 +114,29 @@ end
 #### Example
 
 ```ruby
-ActiveRecordQueryCounter.global_thresholds.query_time = 1.0
+ActiveRecordQueryCounter.default_thresholds.query_time = 1.0
+ActiveRecordQueryCounter.default_thresholds.row_count = 1000
+ActiveRecordQueryCounter.default_thresholds.transaction_time = 2.0
+ActiveRecordQueryCounter.default_thresholds.transaction_count = 1
+
 ActiveSupport::Notifications.subscribe('active_record_query_counter.query_time') do |name, start, finish, id, payload|
   elapsed_time = finish - start
   puts "Query time exceeded (#{elasped_time}s): #{payload[:sql]}"
   puts payload[:trace].join("\n")
 end
 
-ActiveRecordQueryCounter.global_thresholds.row_count = 1000
 ActiveSupport::Notifications.subscribe('active_record_query_counter.row_count') do |name, start, finish, id, payload|
   elapsed = finish - start
   puts "Row count exceeded (#{payload[:row_count]} rows): #{payload[:sql]}"
   puts payload[:trace].join("\n")
 end
 
-ActiveRecordQueryCounter.global_thresholds.transaction_time = 2.0
 ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_time') do |name, start, finish, id, payload|
   elapsed_time = finish - start
   puts "Transaction time exceeded (#{elasped_time}s)"
   puts payload[:trace].join("\n")
 end
 
-ActiveRecordQueryCounter.global_thresholds.transaction_count = 1
 ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_count') do |name, start, finish, id, payload|
   elapsed_time = finish - start
   puts "Transaction count exceeded (#{payload[:transactions].size} transactions in #{elasped_time}s)"

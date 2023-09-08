@@ -11,7 +11,7 @@ module ActiveRecordQueryCounter
       @row_count = 0
       @query_time = 0.0
       @transactions_hash = {}
-      @thresholds = ActiveRecordQueryCounter.global_thresholds.dup
+      @thresholds = ActiveRecordQueryCounter.default_thresholds.dup
     end
 
     # Return an array of transaction information for any transactions that have been tracked

@@ -243,17 +243,17 @@ describe ActiveRecordQueryCounter do
 
   describe "thresholds" do
     it "can set global and counter thresholds" do
-      ActiveRecordQueryCounter.global_thresholds.query_time = 1
-      expect(ActiveRecordQueryCounter.global_thresholds.query_time).to eq 1
+      ActiveRecordQueryCounter.default_thresholds.query_time = 1
+      expect(ActiveRecordQueryCounter.default_thresholds.query_time).to eq 1
 
-      ActiveRecordQueryCounter.global_thresholds.row_count = 10
-      expect(ActiveRecordQueryCounter.global_thresholds.row_count).to eq 10
+      ActiveRecordQueryCounter.default_thresholds.row_count = 10
+      expect(ActiveRecordQueryCounter.default_thresholds.row_count).to eq 10
 
-      ActiveRecordQueryCounter.global_thresholds.transaction_time = 5
-      expect(ActiveRecordQueryCounter.global_thresholds.transaction_time).to eq 5
+      ActiveRecordQueryCounter.default_thresholds.transaction_time = 5
+      expect(ActiveRecordQueryCounter.default_thresholds.transaction_time).to eq 5
 
-      ActiveRecordQueryCounter.global_thresholds.transaction_count = 2
-      expect(ActiveRecordQueryCounter.global_thresholds.transaction_count).to eq 2
+      ActiveRecordQueryCounter.default_thresholds.transaction_count = 2
+      expect(ActiveRecordQueryCounter.default_thresholds.transaction_count).to eq 2
 
       counter = ActiveRecordQueryCounter::Counter.new
       expect(counter.thresholds.query_time).to eq 1
@@ -263,12 +263,12 @@ describe ActiveRecordQueryCounter do
 
       counter.thresholds.query_time = 2
       expect(counter.thresholds.query_time).to eq 2
-      expect(ActiveRecordQueryCounter.global_thresholds.query_time).to eq 1
+      expect(ActiveRecordQueryCounter.default_thresholds.query_time).to eq 1
     ensure
-      ActiveRecordQueryCounter.global_thresholds.query_time = nil
-      ActiveRecordQueryCounter.global_thresholds.row_count = nil
-      ActiveRecordQueryCounter.global_thresholds.transaction_time = nil
-      ActiveRecordQueryCounter.global_thresholds.transaction_count = nil
+      ActiveRecordQueryCounter.default_thresholds.query_time = nil
+      ActiveRecordQueryCounter.default_thresholds.row_count = nil
+      ActiveRecordQueryCounter.default_thresholds.transaction_time = nil
+      ActiveRecordQueryCounter.default_thresholds.transaction_count = nil
     end
 
     it "can set thresholds just for the current counter" do
@@ -276,7 +276,7 @@ describe ActiveRecordQueryCounter do
         counter = ActiveRecordQueryCounter.send(:current_counter)
         ActiveRecordQueryCounter.thresholds.query_time = 1
         expect(counter.thresholds.query_time).to eq 1
-        expect(ActiveRecordQueryCounter.global_thresholds.query_time).to eq nil
+        expect(ActiveRecordQueryCounter.default_thresholds.query_time).to eq nil
       end
     end
 

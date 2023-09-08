@@ -189,14 +189,14 @@ module ActiveRecordQueryCounter
     # thresholds are used as the default values.
     #
     # @return [ActiveRecordQueryCounter::Thresholds]
-    def global_thresholds
-      @global_thresholds ||= Thresholds.new
+    def default_thresholds
+      @default_thresholds ||= Thresholds.new
     end
 
     # Get the current local notification thresholds. These thresholds are only used within
     # the current `count_queries` block.
     def thresholds
-      current_counter&.thresholds || @global_thresholds.dup
+      current_counter&.thresholds || @default_thresholds.dup
     end
 
     # Enable the query counting behavior on a connection adapter class.
