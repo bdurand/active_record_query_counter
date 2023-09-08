@@ -18,15 +18,35 @@ require_relative "active_record_query_counter/version"
 #    puts ActiveRecordQueryCounter.row_count
 #  end
 module ActiveRecordQueryCounter
+  IGNORED_STATEMENTS = %w[CACHE SCHEMA EXPLAIN].freeze
+  private_constant :IGNORED_STATEMENTS
+
   class << self
+    attr_accessor :query_time_threshold
+    attr_accessor :row_count_threshold
+    attr_accessor :transaction_time_threshold
+    attr_accessor :transaction_count_threshold
+
     # Enable query counting within a block.
     #
     # @return [Object] the result of the block
     def count_queries
       current = Thread.current[:database_query_counter]
       begin
-        Thread.current[:database_query_counter] = Counter.new
-        yield
+        counter = Counter.new
+        Thread.current[:database_query_counter] = counter
+        retval = yield
+
+        if transaction_count_threshold && counter.transaction_count >= transaction_count_threshold
+          send_notification(
+            "active_record_query_counter.transaction_count",
+            counter.first_transaction_start_time,
+            counter.last_transaction_end_time,
+            transaction_count: counter.transaction_count
+          )
+        end
+
+        retval
       ensure
         Thread.current[:database_query_counter] = current
       end
@@ -38,12 +58,23 @@ module ActiveRecordQueryCounter
     # @param elapsed_time [Float] the time spent executing the query
     # @return [void]
     # @api private
-    def increment(row_count, elapsed_time)
+    def add_query(sql, name, binds, row_count, start_time, end_time)
+      return if IGNORED_STATEMENTS.include?(name)
+
       counter = Thread.current[:database_query_counter]
-      if counter.is_a?(Counter)
-        counter.query_count += 1
-        counter.row_count += row_count
-        counter.query_time += elapsed_time
+      return unless counter
+
+      elapsed_time = end_time - start_time
+      counter.query_count += 1
+      counter.row_count += row_count
+      counter.query_time += elapsed_time
+
+      if query_time_threshold && elapsed_time >= query_time_threshold
+        send_notification("active_record_query_counter.query_time", start_time, end_time, sql: sql, binds: binds)
+      end
+
+      if row_count_threshold && row_count >= row_count_threshold
+        send_notification("active_record_query_counter.row_count", start_time, end_time, sql: sql, binds: binds, row_count: row_count)
       end
     end
 
@@ -53,7 +84,7 @@ module ActiveRecordQueryCounter
     # @param end_time [Float] the time the transaction ended
     # @return [void]
     # @api private
-    def increment_transaction(start_time, end_time)
+    def add_transaction(start_time, end_time)
       counter = Thread.current[:database_query_counter]
       if counter.is_a?(Counter)
         trace = caller
@@ -63,21 +94,11 @@ module ActiveRecordQueryCounter
           index += 1
         end
         trace = trace[index, trace.length]
+        counter.add_transaction(trace: trace, start_time: start_time, end_time: end_time)
+      end
 
-        info = counter.transactions[trace]
-        if info
-          info.count += 1
-          info.elapsed_time += end_time - start_time
-          info.end_time = end_time
-        else
-          info = TransactionInfo.new
-          info.count = 1
-          info.start_time = start_time
-          info.end_time = end_time
-          info.elapsed_time = end_time - start_time
-          info.trace = trace
-          counter.transactions[trace] = info
-        end
+      if transaction_time_threshold && end_time - start_time >= transaction_time_threshold
+        send_notification("active_record_query_counter.transaction_time", start_time, end_time)
       end
     end
 
@@ -126,14 +147,36 @@ module ActiveRecordQueryCounter
       counter.transaction_time if counter.is_a?(Counter)
     end
 
-    # Return the total time that would have been spent in transactions if all transactions
-    # tracked by the counter were nested inside a single transaction. See {Counter#single_transaction_time}
-    # for more information. Returns nil if not inside a block where queries are being counted.
+    # Return the time when the first transaction began within the current block.
+    # Returns nil if not inside a block where queries are being counted or there are no transactions.
     #
-    # @return [Float, nil]
-    def single_transaction_time
+    # @return [Float, nil] the monotonic time when the first transaction began,
+    def first_transaction_start_time
       counter = Thread.current[:database_query_counter]
-      counter.single_transaction_time if counter.is_a?(Counter)
+      counter.first_transaction_start_time if counter.is_a?(Counter)
+    end
+
+    # Return the time when the last transaction ended within the current block.
+    # Returns nil if not inside a block where queries are being counted or there are no transactions.
+    #
+    # @return [Float, nil] the monotonic time when the last transaction ended,
+    def last_transaction_end_time
+      counter = Thread.current[:database_query_counter]
+      counter.transactions.last&.end_time if counter.is_a?(Counter)
+    end
+
+    # Return the total time that would have been spent in transactions if all transactions
+    # tracked by the counter were nested inside a single transaction. This is useful for
+    # determining the effects of wrapping code in a single transaction. For example, if
+    # if there were two transactions that each took 1 second and they were called 2 seconds
+    # apart, then the single transaction time would be 4 seconds since this is how long it would
+    # have taken if they were nested inside a single transaction.
+    #
+    # @return [Float]
+    def single_transaction_time
+      start_time = first_transaction_start_time
+      end_time = transactions.last&.end_time
+      (start_time && end_time) ? end_time - start_time : 0.0
     end
 
     # Return an array of transaction information for any transactions that have been counted
@@ -142,7 +185,7 @@ module ActiveRecordQueryCounter
     # @return [Array<ActiveRecordQueryCounter::TransactionInfo>, nil]
     def transactions
       counter = Thread.current[:database_query_counter]
-      counter.transactions.values if counter.is_a?(Counter)
+      counter.transactions if counter.is_a?(Counter)
     end
 
     # Return the query info as a hash with keys :query_count, :row_count, :query_time
@@ -174,6 +217,14 @@ module ActiveRecordQueryCounter
       unless ActiveRecord::ConnectionAdapters::TransactionManager.include?(TransactionManagerExtension)
         ActiveRecord::ConnectionAdapters::TransactionManager.prepend(TransactionManagerExtension)
       end
+    end
+
+    private
+
+    def send_notification(name, start_time, end_time, payload = {})
+      id = "#{name}-#{SecureRandom.hex}"
+      trace = caller.reject { |line| line.start_with?(__dir__) }
+      ActiveSupport::Notifications.publish(name, start_time, end_time, id, payload.merge(trace: trace))
     end
   end
 end
