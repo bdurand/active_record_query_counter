@@ -50,4 +50,32 @@ describe ActiveRecordQueryCounter::SidekiqMiddleware do
     expect(transaction_time).to eq 2.5
     expect(transaction_count).to eq 1
   end
+
+  it "can disable thresholds" do
+    ActiveRecordQueryCounter.default_thresholds.set(
+      query_time: 1.5,
+      row_count: 100,
+      transaction_time: 2.5,
+      transaction_count: 1
+    )
+
+    middleware = ActiveRecordQueryCounter::SidekiqMiddleware.new
+    query_time = nil
+    row_count = nil
+    transaction_time = nil
+    transaction_count = nil
+    middleware.call(:worker, {"active_record_query_counter" => {"thresholds" => false}}, "queue") do
+      t = ActiveRecordQueryCounter.thresholds
+      query_time = t.query_time
+      row_count = t.row_count
+      transaction_time = t.transaction_time
+      transaction_count = t.transaction_count
+    end
+    expect(query_time).to eq nil
+    expect(row_count).to eq nil
+    expect(transaction_time).to eq nil
+    expect(transaction_count).to eq nil
+  ensure
+    ActiveRecordQueryCounter.default_thresholds.clear
+  end
 end

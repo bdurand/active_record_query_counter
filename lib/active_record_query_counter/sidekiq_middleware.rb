@@ -10,6 +10,8 @@ module ActiveRecordQueryCounter
   # * `:transaction_time` - The minimum transaction time to send a notification for.
   # * `:transaction_count` - The minimum transaction count to send a notification for.
   #
+  # Thresholds can be disabled for a worker by setting `active_record_query_counter.thresholds` to `false`.
+  #
   # @example
   #
   #   class MyWorker
@@ -30,7 +32,9 @@ module ActiveRecordQueryCounter
       ActiveRecordQueryCounter.count_queries do
         thresholds = job_payload.dig("active_record_query_counter", "thresholds")
         if thresholds.is_a?(Hash)
-          ActiveRecordQueryCounter.thresholds.attributes = thresholds
+          ActiveRecordQueryCounter.thresholds.set(thresholds)
+        elsif thresholds == false
+          ActiveRecordQueryCounter.thresholds.clear
         end
 
         yield

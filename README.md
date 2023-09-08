@@ -95,20 +95,24 @@ The duration of the notification event is the time between with the first transa
 The thresholds for triggering notifications can be set globally:
 
 ```ruby
-ActiveRecordQueryCounter.default_thresholds.query_time = 2.0
-ActiveRecordQueryCounter.default_thresholds.row_count = 1000
-ActiveRecordQueryCounter.default_thresholds.transaction_time = 5.0
-ActiveRecordQueryCounter.default_thresholds.transaction_count = 2
+ActiveRecordQueryCounter.default_thresholds.set(
+  query_time: 2.0,
+  row_count: 1000,
+  transaction_time: 5.0,
+  transaction_count: 2
+)
 ```
 
 They can be set locally inside a `count_queries` block. The local thresholds will override the global thresholds only inside the block.
 
 ```ruby
 ActiveRecordQueryCounter.count_queries do
-  ActiveRecordQueryCounter.thresholds.query_time = 1.0
-  ActiveRecordQueryCounter.thresholds.row_count = 100
-  ActiveRecordQueryCounter.thresholds.transaction_time = 2.0
-  ActiveRecordQueryCounter.thresholds.transaction_count = 1
+  ActiveRecordQueryCounter.thresholds.set(
+    query_time: 1.0,
+    row_count: 100,
+    transaction_time: 2.0,
+    transaction_count: 1
+  )
 end
 ```
 
@@ -128,6 +132,7 @@ class MyWorker
       }
     }
   )
+  # You can also disable thresholds for the worker by setting `thresholds: false`.
 
   def perform
     do_something

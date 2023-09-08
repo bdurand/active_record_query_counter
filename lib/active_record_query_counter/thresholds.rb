@@ -22,10 +22,27 @@ module ActiveRecordQueryCounter
       @transaction_count = value&.to_i
     end
 
-    def attributes=(attributes)
-      attributes.each do |key, value|
-        public_send("#{key}=", value)
+    # Set threshold values from a hash.
+    #
+    # @param attributes [Hash] the attributes to set
+    # @return [void]
+    def set(values)
+      values.each do |key, value|
+        setter = "#{key}="
+        if respond_to?(setter)
+          public_send("#{key}=", value)
+        else
+          raise ArgumentError, "Unknown threshold: #{key}"
+        end
       end
+    end
+
+    # Clear all threshold values.
+    def clear
+      @query_time = nil
+      @row_count = nil
+      @transaction_time = nil
+      @transaction_count = nil
     end
   end
 end

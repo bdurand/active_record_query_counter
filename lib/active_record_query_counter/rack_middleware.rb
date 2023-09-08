@@ -11,14 +11,12 @@ module ActiveRecordQueryCounter
     #   * `:transaction_count` - The minimum transaction count to send a notification for.
     def initialize(app, thresholds: nil)
       @app = app
-      @thresholds = thresholds.with_indifferent_access if thresholds
+      @thresholds = thresholds.dup.freeze if thresholds
     end
 
     def call(env)
       ActiveRecordQueryCounter.count_queries do
-        if @thresholds
-          ActiveRecordQueryCounter.thresholds.attributes = @thresholds
-        end
+        ActiveRecordQueryCounter.thresholds.set(@thresholds) if @thresholds
 
         @app.call(env)
       end
