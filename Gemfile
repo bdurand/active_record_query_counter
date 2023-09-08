@@ -2,6 +2,8 @@ source "https://rubygems.org"
 
 gemspec
 
+gem "sidekiq"
+
 gem "rspec", "~> 3.11"
 gem "sqlite3", "~> 1.4.0"
 gem "appraisal"

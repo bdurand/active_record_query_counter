@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "active_record_query_counter/counter"
-require_relative "active_record_query_counter/transaction_info"
 require_relative "active_record_query_counter/connection_adapter_extension"
-require_relative "active_record_query_counter/transaction_manager_extension"
+require_relative "active_record_query_counter/counter"
 require_relative "active_record_query_counter/rack_middleware"
 require_relative "active_record_query_counter/sidekiq_middleware"
+require_relative "active_record_query_counter/thresholds"
+require_relative "active_record_query_counter/transaction_info"
+require_relative "active_record_query_counter/transaction_manager_extension"
 require_relative "active_record_query_counter/version"
 
 # Everything you need to count ActiveRecord queries and row counts within a block.
@@ -22,33 +23,28 @@ module ActiveRecordQueryCounter
   private_constant :IGNORED_STATEMENTS
 
   class << self
-    attr_accessor :query_time_threshold
-    attr_accessor :row_count_threshold
-    attr_accessor :transaction_time_threshold
-    attr_accessor :transaction_count_threshold
-
     # Enable query counting within a block.
     #
     # @return [Object] the result of the block
     def count_queries
-      current = Thread.current[:active_record_query_counter]
+      save_counter = current_counter
       begin
         counter = Counter.new
-        Thread.current[:active_record_query_counter] = counter
+        self.current_counter = counter
+
         retval = yield
 
-        if transaction_count_threshold && counter.transaction_count >= transaction_count_threshold
-          send_notification(
-            "active_record_query_counter.transaction_count",
-            counter.first_transaction_start_time,
-            counter.last_transaction_end_time,
-            transactions: counter.transactions
-          )
+        transaction_count = counter.transaction_count
+        if transaction_count > 0
+          transaction_threshold = (counter.thresholds.transaction_count || -1)
+          if transaction_threshold >= 0 && transaction_count >= transaction_threshold
+            send_notification("transaction_count", counter.first_transaction_start_time, counter.last_transaction_end_time, transactions: counter.transactions)
+          end
         end
 
         retval
       ensure
-        Thread.current[:active_record_query_counter] = current
+        self.current_counter = save_counter
       end
     end
 
@@ -61,35 +57,22 @@ module ActiveRecordQueryCounter
     def add_query(sql, name, binds, row_count, start_time, end_time)
       return if IGNORED_STATEMENTS.include?(name)
 
-      counter = Thread.current[:active_record_query_counter]
-      return unless counter
+      counter = current_counter
+      return unless counter.is_a?(Counter)
 
       elapsed_time = end_time - start_time
       counter.query_count += 1
       counter.row_count += row_count
       counter.query_time += elapsed_time
 
-      if query_time_threshold && elapsed_time >= query_time_threshold
-        send_notification(
-          "active_record_query_counter.query_time",
-          start_time,
-          end_time,
-          sql: sql,
-          binds: binds,
-          trace: backtrace
-        )
+      query_time_threshold = (counter.thresholds.query_time || -1)
+      if query_time_threshold >= 0 && elapsed_time >= query_time_threshold
+        send_notification("query_time", start_time, end_time, sql: sql, binds: binds, trace: backtrace)
       end
 
-      if row_count_threshold && row_count >= row_count_threshold
-        send_notification(
-          "active_record_query_counter.row_count",
-          start_time,
-          end_time,
-          sql: sql,
-          binds: binds,
-          row_count: row_count,
-          trace: backtrace
-        )
+      row_count_threshold = (counter.thresholds.row_count || -1)
+      if row_count_threshold >= 0 && row_count >= row_count_threshold
+        send_notification("row_count", start_time, end_time, sql: sql, binds: binds, row_count: row_count, trace: backtrace)
       end
     end
 
@@ -100,19 +83,15 @@ module ActiveRecordQueryCounter
     # @return [void]
     # @api private
     def add_transaction(start_time, end_time)
-      counter = Thread.current[:active_record_query_counter]
-      if counter.is_a?(Counter)
-        trace = backtrace
-        counter.add_transaction(trace: trace, start_time: start_time, end_time: end_time)
-      end
+      counter = current_counter
+      return unless counter.is_a?(Counter)
 
-      if transaction_time_threshold && end_time - start_time >= transaction_time_threshold
-        send_notification(
-          "active_record_query_counter.transaction_time",
-          start_time,
-          end_time,
-          trace: backtrace
-        )
+      trace = backtrace
+      counter.add_transaction(trace: trace, start_time: start_time, end_time: end_time)
+
+      transaction_time_threshold = (counter.thresholds.transaction_time || -1)
+      if transaction_time_threshold >= 0 && end_time - start_time >= transaction_time_threshold
+        send_notification("transaction_time", start_time, end_time, trace: backtrace)
       end
     end
 
@@ -121,7 +100,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Integer, nil]
     def query_count
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.query_count if counter.is_a?(Counter)
     end
 
@@ -130,7 +109,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Integer, nil]
     def row_count
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.row_count if counter.is_a?(Counter)
     end
 
@@ -139,7 +118,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil]
     def query_time
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.query_time if counter.is_a?(Counter)
     end
 
@@ -148,7 +127,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Integer, nil]
     def transaction_count
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.transaction_count if counter.is_a?(Counter)
     end
 
@@ -157,7 +136,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil]
     def transaction_time
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.transaction_time if counter.is_a?(Counter)
     end
 
@@ -166,7 +145,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil] the monotonic time when the first transaction began,
     def first_transaction_start_time
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.first_transaction_start_time if counter.is_a?(Counter)
     end
 
@@ -175,22 +154,8 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil] the monotonic time when the last transaction ended,
     def last_transaction_end_time
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.transactions.last&.end_time if counter.is_a?(Counter)
-    end
-
-    # Return the total time that would have been spent in transactions if all transactions
-    # tracked by the counter were nested inside a single transaction. This is useful for
-    # determining the effects of wrapping code in a single transaction. For example, if
-    # if there were two transactions that each took 1 second and they were called 2 seconds
-    # apart, then the single transaction time would be 4 seconds since this is how long it would
-    # have taken if they were nested inside a single transaction.
-    #
-    # @return [Float]
-    def single_transaction_time
-      start_time = first_transaction_start_time
-      end_time = transactions.last&.end_time
-      (start_time && end_time) ? end_time - start_time : 0.0
     end
 
     # Return an array of transaction information for any transactions that have been counted
@@ -198,7 +163,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Array<ActiveRecordQueryCounter::TransactionInfo>, nil]
     def transactions
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       counter.transactions if counter.is_a?(Counter)
     end
 
@@ -208,7 +173,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Hash, nil]
     def info
-      counter = Thread.current[:active_record_query_counter]
+      counter = current_counter
       if counter.is_a?(Counter)
         {
           query_count: counter.query_count,
@@ -218,6 +183,20 @@ module ActiveRecordQueryCounter
           transaction_time: counter.transaction_time
         }
       end
+    end
+
+    # The global notification thresholds for sending notifications. The values set in these
+    # thresholds are used as the default values.
+    #
+    # @return [ActiveRecordQueryCounter::Thresholds]
+    def global_thresholds
+      @global_thresholds ||= Thresholds.new
+    end
+
+    # Get the current local notification thresholds. These thresholds are only used within
+    # the current `count_queries` block.
+    def thresholds
+      current_counter&.thresholds || @global_thresholds.dup
     end
 
     # Enable the query counting behavior on a connection adapter class.
@@ -235,9 +214,17 @@ module ActiveRecordQueryCounter
 
     private
 
+    def current_counter
+      Thread.current[:active_record_query_counter]
+    end
+
+    def current_counter=(counter)
+      Thread.current[:active_record_query_counter] = counter
+    end
+
     def send_notification(name, start_time, end_time, payload = {})
       id = "#{name}-#{SecureRandom.hex}"
-      ActiveSupport::Notifications.publish(name, start_time, end_time, id, payload)
+      ActiveSupport::Notifications.publish("active_record_query_counter.#{name}", start_time, end_time, id, payload)
     end
 
     def backtrace

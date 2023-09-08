@@ -23,4 +23,26 @@ describe ActiveRecordQueryCounter::RackMiddleware do
     result = middleware.call("foo" => "bar")
     expect(result).to eq [200, {"foo" => "bar"}, ["queries: 1, rows: 3"]]
   end
+
+  it "can set thresholds" do
+    app = lambda do |env|
+      t = ActiveRecordQueryCounter.thresholds
+      headers = {
+        "query_time" => t.query_time,
+        "row_count" => t.row_count,
+        "transaction_time" => t.transaction_time,
+        "transaction_count" => t.transaction_count
+      }
+      [200, headers, ["OK"]]
+    end
+
+    middleware = ActiveRecordQueryCounter::RackMiddleware.new(app, query_time_threshold: 1.5, row_count_threshold: 100, transaction_time_threshold: 2.5, transaction_count_threshold: 1)
+    result = middleware.call("foo" => "bar")
+    expect(result[1]).to eq({
+      "query_time" => 1.5,
+      "row_count" => 100,
+      "transaction_time" => 2.5,
+      "transaction_count" => 1
+    })
+  end
 end
