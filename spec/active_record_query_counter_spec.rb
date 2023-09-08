@@ -135,42 +135,15 @@ describe ActiveRecordQueryCounter do
 
         transactions = ActiveRecordQueryCounter.transactions
         expect(transactions.size).to eq 3
-        expect(transactions.values.collect(&:first)).to eq [1, 3, 1]
-        expect(transactions.values.sum(&:last)).to eq ActiveRecordQueryCounter.transaction_time
+        expect(transactions.collect(&:count)).to eq [1, 3, 1]
+        expect(transactions.sum(&:elapsed_time)).to eq ActiveRecordQueryCounter.transaction_time
+        expect(ActiveRecordQueryCounter.transaction_time).to be < ActiveRecordQueryCounter.single_transaction_time
 
-        lib_dir = File.expand_path("../../lib", __FILE__)
-        transactions.keys.each do |trace|
-          expect(trace.first.start_with?(lib_dir)).to eq false
+        lib_dir = File.expand_path(File.join(__dir__, "..", "lib"))
+        transactions.each do |info|
+          expect(info.trace.first.start_with?(lib_dir)).to eq false
         end
       end
-    end
-  end
-
-  describe ActiveRecordQueryCounter::RackMiddleware do
-    it "enables query counting" do
-      app = lambda do |env|
-        TestModel.all.to_a
-        [200, env, ["queries: #{ActiveRecordQueryCounter.query_count}, rows: #{ActiveRecordQueryCounter.row_count}"]]
-      end
-
-      middleware = ActiveRecordQueryCounter::RackMiddleware.new(app)
-      result = middleware.call("foo" => "bar")
-      expect(result).to eq [200, {"foo" => "bar"}, ["queries: 1, rows: 3"]]
-    end
-  end
-
-  describe ActiveRecordQueryCounter::SidekiqMiddleware do
-    it "enables query counting" do
-      middleware = ActiveRecordQueryCounter::SidekiqMiddleware.new
-      query_count = nil
-      row_count = nil
-      middleware.call(:worker, {}, "queue") do
-        TestModel.all.to_a
-        query_count = ActiveRecordQueryCounter.query_count
-        row_count = ActiveRecordQueryCounter.row_count
-      end
-      expect(query_count).to eq 1
-      expect(row_count).to eq 3
     end
   end
 end
