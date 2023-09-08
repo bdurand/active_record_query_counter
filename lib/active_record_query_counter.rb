@@ -31,10 +31,10 @@ module ActiveRecordQueryCounter
     #
     # @return [Object] the result of the block
     def count_queries
-      current = Thread.current[:database_query_counter]
+      current = Thread.current[:active_record_query_counter]
       begin
         counter = Counter.new
-        Thread.current[:database_query_counter] = counter
+        Thread.current[:active_record_query_counter] = counter
         retval = yield
 
         if transaction_count_threshold && counter.transaction_count >= transaction_count_threshold
@@ -48,7 +48,7 @@ module ActiveRecordQueryCounter
 
         retval
       ensure
-        Thread.current[:database_query_counter] = current
+        Thread.current[:active_record_query_counter] = current
       end
     end
 
@@ -61,7 +61,7 @@ module ActiveRecordQueryCounter
     def add_query(sql, name, binds, row_count, start_time, end_time)
       return if IGNORED_STATEMENTS.include?(name)
 
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       return unless counter
 
       elapsed_time = end_time - start_time
@@ -100,7 +100,7 @@ module ActiveRecordQueryCounter
     # @return [void]
     # @api private
     def add_transaction(start_time, end_time)
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       if counter.is_a?(Counter)
         trace = backtrace
         counter.add_transaction(trace: trace, start_time: start_time, end_time: end_time)
@@ -121,7 +121,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Integer, nil]
     def query_count
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.query_count if counter.is_a?(Counter)
     end
 
@@ -130,7 +130,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Integer, nil]
     def row_count
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.row_count if counter.is_a?(Counter)
     end
 
@@ -139,7 +139,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil]
     def query_time
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.query_time if counter.is_a?(Counter)
     end
 
@@ -148,7 +148,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Integer, nil]
     def transaction_count
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.transaction_count if counter.is_a?(Counter)
     end
 
@@ -157,7 +157,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil]
     def transaction_time
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.transaction_time if counter.is_a?(Counter)
     end
 
@@ -166,7 +166,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil] the monotonic time when the first transaction began,
     def first_transaction_start_time
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.first_transaction_start_time if counter.is_a?(Counter)
     end
 
@@ -175,7 +175,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Float, nil] the monotonic time when the last transaction ended,
     def last_transaction_end_time
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.transactions.last&.end_time if counter.is_a?(Counter)
     end
 
@@ -198,7 +198,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Array<ActiveRecordQueryCounter::TransactionInfo>, nil]
     def transactions
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       counter.transactions if counter.is_a?(Counter)
     end
 
@@ -208,7 +208,7 @@ module ActiveRecordQueryCounter
     #
     # @return [Hash, nil]
     def info
-      counter = Thread.current[:database_query_counter]
+      counter = Thread.current[:active_record_query_counter]
       if counter.is_a?(Counter)
         {
           query_count: counter.query_count,
