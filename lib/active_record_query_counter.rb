@@ -196,7 +196,7 @@ module ActiveRecordQueryCounter
     # Get the current local notification thresholds. These thresholds are only used within
     # the current `count_queries` block.
     def thresholds
-      current_counter&.thresholds || @default_thresholds.dup
+      current_counter&.thresholds || default_thresholds.dup
     end
 
     # Enable the query counting behavior on a connection adapter class.

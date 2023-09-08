@@ -280,11 +280,9 @@ describe ActiveRecordQueryCounter do
       end
     end
 
-    it "does not raise an error when setting thresholds when there is no current counter" do
-      expect { ActiveRecordQueryCounter.thresholds.query_time = 1 }.to_not raise_error
-      expect { ActiveRecordQueryCounter.thresholds.row_count = 1 }.to_not raise_error
-      expect { ActiveRecordQueryCounter.thresholds.transaction_time = 1 }.to_not raise_error
-      expect { ActiveRecordQueryCounter.thresholds.transaction_count = 1 }.to_not raise_error
+    it "does nothing when there is no current counter" do
+      ActiveRecordQueryCounter.thresholds.query_time = 1
+      expect(ActiveRecordQueryCounter.default_thresholds.query_time).to eq nil
     end
   end
 end
