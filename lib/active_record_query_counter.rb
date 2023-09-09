@@ -222,7 +222,7 @@ module ActiveRecordQueryCounter
     # @param callable [Proc] the callable to call when the notification is published
     # @return [void]
     def subscribe(name, callable = nil, &block)
-      ActiveSupport::Notifications.monotonic_subscribe("active_record_query_counter.#{name}", callable, &block)
+      ActiveSupport::Notifications.subscribe("active_record_query_counter.#{name}", callable, &block)
     end
 
     private
