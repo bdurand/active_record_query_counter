@@ -159,28 +159,28 @@ ActiveRecordQueryCounter.default_thresholds.row_count = 1000
 ActiveRecordQueryCounter.default_thresholds.transaction_time = 2.0
 ActiveRecordQueryCounter.default_thresholds.transaction_count = 1
 
-ActiveSupport::Notifications.subscribe('active_record_query_counter.query_time') do |name, start, finish, id, payload|
-  elapsed_time = finish - start
-  puts "Query time exceeded (#{elasped_time}s): #{payload[:sql]}"
-  puts payload[:trace].join("\n")
+ActiveSupport::Notifications.subscribe('active_record_query_counter.query_time') do |*args|
+  event = ActiveSupport::Notifications::Event.new(*args)
+  puts "Query time exceeded (#{event.duration}ms): #{event.payload[:sql]}"
+  puts event.payload[:trace].join("\n")
 end
 
-ActiveSupport::Notifications.subscribe('active_record_query_counter.row_count') do |name, start, finish, id, payload|
-  elapsed = finish - start
-  puts "Row count exceeded (#{payload[:row_count]} rows): #{payload[:sql]}"
-  puts payload[:trace].join("\n")
+ActiveSupport::Notifications.subscribe('active_record_query_counter.row_count') do |*args|
+  event = ActiveSupport::Notifications::Event.new(*args)
+  puts "Row count exceeded (#{event.payload[:row_count]} rows): #{event.payload[:sql]}"
+  puts event.payload[:trace].join("\n")
 end
 
-ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_time') do |name, start, finish, id, payload|
-  elapsed_time = finish - start
-  puts "Transaction time exceeded (#{elasped_time}s)"
-  puts payload[:trace].join("\n")
+ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_time') do |*args|
+  event = ActiveSupport::Notifications::Event.new(*args)
+  puts "Transaction time exceeded (#{event.duration}ms)"
+  puts event.payload[:trace].join("\n")
 end
 
-ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_count') do |name, start, finish, id, payload|
-  elapsed_time = finish - start
-  puts "Transaction count exceeded (#{payload[:transactions].size} transactions in #{elasped_time}s)"
-  payload[:transactions].each do |info|
+ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_count') do |*args|
+  event = ActiveSupport::Notifications::Event.new(*args)
+  puts "Transaction count exceeded (#{event.payload[:transactions].size} transactions in #{event.duration}ms)"
+  event.payload[:transactions].each do |info|
     puts info.trace.join("\n")
   end
 end
@@ -191,7 +191,8 @@ You can also subscribe to the notifications with a helper method which can make 
 ```ruby
 ActiveRecordQueryCounter.subscribe(:query_time) do |*args|
   event = ActiveSupport::Notifications::Event.new(*args)
-  puts "Long running query (#{event.duration.round(1)}ms): #{event.payload[:sql]}"
+  puts "Query time exceeded (#{event.duration}ms): #{event.payload[:sql]}"
+  puts event.payload[:trace].join("\n")
 end
 ```
 
