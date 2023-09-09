@@ -3,7 +3,15 @@
 ![Continuous Integration](https://github.com/bdurand/active_record_query_counter/workflows/Continuous%20Integration/badge.svg)
 [![Ruby Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://github.com/testdouble/standard)
 
-This gem injects itself into ActiveRecord to give you insight into how your code is using the database. It counts the number of queries, the number of rows returned, the amount of time spent on queries, the number of transactions, and the amount of time spent inside transactions within a block.
+This gem injects itself into ActiveRecord to give you insight into how your code is using the database.
+
+Within a block of code, it will count:
+
+- the number of queries
+- the number of rows returned
+- the amount of time spent on queries
+- the number of transactions used
+- the amount of time spent inside transactions
 
 The intended use is to gather instrumentation stats for finding hot spots in your code that produce a lot of queries or slow queries or queries that return a lot of rows. It can also be used to find code that is not using transactions when making multiple updates to the database.
 
@@ -36,9 +44,7 @@ ActiveRecordQueryCounter.count_queries do
 end
 ```
 
-This gem includes middleware for both Rack and Sidekiq that will enable query counting.
-
-If you are using Rails with Sidekiq, you can enable both with an initializer.
+This gem includes middleware for both Rack and Sidekiq that will enable query counting on web requests and in workers. If you are using Rails with Sidekiq, you can enable both with an initializer.
 
 ```ruby
 ActiveSupport.on_load(:active_record) do
@@ -80,7 +86,7 @@ This notification is triggered when a query returns more rows than the `row_coun
 
 This notification is triggered when a transaction takes longer than the `transaction_time` threshold. The payload contains the following keys:
 
-- `:trace` - The stack trace of where the transaction was committed.
+- `:trace` - The stack trace of where the transaction was completed.
 
 #### active_record_query_counter.transaction_count notification
 
@@ -88,11 +94,11 @@ This notification is triggered when a transaction takes longer than the `transac
 
 - `:transactions` - An array of `ActiveRecordQueryCounter::TransactionInfo` objects.
 
-The duration of the notification event is the time between with the first transaction was started and the last transaction was completed.
+The duration of the notification event is the time between when the first transaction was started and the last transaction was completed.
 
 #### Thresholds
 
-The thresholds for triggering notifications can be set globally:
+The thresholds for triggering notifications can be set globally in an initializer:
 
 ```ruby
 ActiveRecordQueryCounter.default_thresholds.set(
@@ -103,7 +109,7 @@ ActiveRecordQueryCounter.default_thresholds.set(
 )
 ```
 
-They can be set locally inside a `count_queries` block. The local thresholds will override the global thresholds only inside the block.
+They can be set locally inside a `count_queries` block with the `thresholds` object. Local thresholds will override the global thresholds only inside the block and will not change any global state.
 
 ```ruby
 ActiveRecordQueryCounter.count_queries do
@@ -116,7 +122,7 @@ ActiveRecordQueryCounter.count_queries do
 end
 ```
 
-You can also pass thresholds to individual Sidekiq workers.
+You can pass thresholds to individual Sidekiq workers via the `sidekiq_options` on the worker.
 
 ```ruby
 class MyWorker
@@ -132,7 +138,7 @@ class MyWorker
       }
     }
   )
-  # You can also disable thresholds for the worker by setting `thresholds: false`.
+  # You can disable thresholds for the worker by setting `thresholds: false`.
 
   def perform
     do_something
@@ -140,7 +146,7 @@ class MyWorker
 end
 ```
 
-You can also set separate thresholds on the Rack middleware when you install it.
+You can set separate thresholds on the Rack middleware when you install it.
 
 ```ruby
 Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware, thresholds: {
@@ -151,7 +157,7 @@ Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware
 })
 ```
 
-#### Example
+#### Example Notification Subscriptions
 
 ```ruby
 ActiveRecordQueryCounter.default_thresholds.query_time = 1.0
