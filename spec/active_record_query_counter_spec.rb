@@ -149,7 +149,7 @@ describe ActiveRecordQueryCounter do
 
   describe "notifications" do
     it "sends a notification when the query count exceeds the threshold" do
-      notifications = capture_notifications("active_record_query_counter.query_time") do
+      notifications = capture_notifications("query_time") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.query_time = 0
           TestModel.all.to_a
@@ -164,7 +164,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "does not send a notification when the query count does not exceed the threshold" do
-      notifications = capture_notifications("active_record_query_counter.query_time") do
+      notifications = capture_notifications("query_time") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.query_time = 5
           TestModel.all.to_a
@@ -174,7 +174,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "sends a notification when the row count exceeds the threshold" do
-      notifications = capture_notifications("active_record_query_counter.row_count") do
+      notifications = capture_notifications("row_count") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.row_count = 2
           TestModel.all.to_a
@@ -189,7 +189,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "does not send a notification when the row count does not exceed the threshold" do
-      notifications = capture_notifications("active_record_query_counter.row_count") do
+      notifications = capture_notifications("row_count") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.row_count = 5
           TestModel.all.to_a
@@ -199,7 +199,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "sends a notification when the transaction time exceeds the threshold" do
-      notifications = capture_notifications("active_record_query_counter.transaction_time") do
+      notifications = capture_notifications("transaction_time") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.transaction_time = 0
           TestModel.create!(name: "new")
@@ -211,7 +211,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "does not send a notification when the transaction time does not exceed the threshold" do
-      notifications = capture_notifications("active_record_query_counter.transaction_time") do
+      notifications = capture_notifications("transaction_time") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.transaction_time = 5
           TestModel.create!(name: "new")
@@ -221,7 +221,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "sends a notification when the transaction count exceeds the threshold" do
-      notifications = capture_notifications("active_record_query_counter.transaction_count") do
+      notifications = capture_notifications("transaction_count") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.transaction_count = 1
           TestModel.create!(name: "new 1")
@@ -234,7 +234,7 @@ describe ActiveRecordQueryCounter do
     end
 
     it "does not send a notification when the transaction count does not exceed the threshold" do
-      notifications = capture_notifications("active_record_query_counter.transaction_count") do
+      notifications = capture_notifications("transaction_count") do
         ActiveRecordQueryCounter.count_queries do
           ActiveRecordQueryCounter.thresholds.transaction_count = 5
           ActiveRecord::Base.transaction { true }

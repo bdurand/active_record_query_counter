@@ -186,6 +186,15 @@ ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_
 end
 ```
 
+You can also subscribe to the notifications with a helper method which can make your code a little less verbose.
+
+```ruby
+ActiveRecordQueryCounter.subscribe(:query_time) do |*args|
+  event = ActiveSupport::Notifications::Event.new(*args)
+  puts "Long running query (#{event.duration.round(1)}ms): #{event.payload[:sql]}"
+end
+```
+
 ## Contributing
 
 Open a pull request on GitHub.

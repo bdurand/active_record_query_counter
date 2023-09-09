@@ -215,6 +215,16 @@ module ActiveRecordQueryCounter
       end
     end
 
+    # Helper method for subscribing to notifications. This just calls `ActiveSupport::Notifications.monotonic_subscribe`
+    # after prepending the namespace "active_record_query_counter." to the name.
+    #
+    # @param name [String] the name of the notification to subscribe to
+    # @param callable [Proc] the callable to call when the notification is published
+    # @return [void]
+    def subscribe(name, callable = nil, &block)
+      ActiveSupport::Notifications.monotonic_subscribe("active_record_query_counter.#{name}", callable, &block)
+    end
+
     private
 
     def current_counter
