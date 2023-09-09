@@ -32,7 +32,7 @@ end
 def capture_notifications(name)
   payloads = []
 
-  subscription = ActiveRecordQueryCounter.subscribe(name) do |*args|
+  subscription = ActiveSupport::Notifications.subscribe("active_record_query_counter.#{name}") do |*args|
     event = ActiveSupport::Notifications::Event.new(*args)
     payloads << event.payload.merge(duration: event.duration)
   end

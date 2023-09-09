@@ -192,16 +192,6 @@ ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_
 end
 ```
 
-You can also subscribe to the notifications with a helper method which can make your code a little less verbose.
-
-```ruby
-ActiveRecordQueryCounter.subscribe(:query_time) do |*args|
-  event = ActiveSupport::Notifications::Event.new(*args)
-  puts "Query time exceeded (#{event.duration}ms): #{event.payload[:sql]}"
-  puts event.payload[:trace].join("\n")
-end
-```
-
 ## Contributing
 
 Open a pull request on GitHub.
