@@ -3,15 +3,28 @@
 module ActiveRecordQueryCounter
   # Data structure for storing query information encountered within a block.
   class Counter
-    attr_accessor :query_count, :row_count, :query_time
+    attr_accessor :query_count, :row_count, :query_time, :cached_query_count
     attr_reader :thresholds
 
     def initialize
       @query_count = 0
       @row_count = 0
       @query_time = 0.0
+      @cached_query_count = 0
       @transactions_hash = {}
       @thresholds = ActiveRecordQueryCounter.default_thresholds.dup
+    end
+
+    # Return the percentage of queries that used the query cache instead of going to the database.
+    #
+    # @return [Float]
+    def cache_hit_rate
+      total_queries = query_count + cached_query_count
+      if total_queries > 0
+        (cached_query_count.to_f / total_queries)
+      else
+        0.0
+      end
     end
 
     # Return an array of transaction information for any transactions that have been tracked

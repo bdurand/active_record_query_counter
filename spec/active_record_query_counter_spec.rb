@@ -18,7 +18,32 @@ describe ActiveRecordQueryCounter do
       expect(ActiveRecordQueryCounter.query_count).to eq nil
       expect(ActiveRecordQueryCounter.row_count).to eq nil
       expect(ActiveRecordQueryCounter.query_time).to eq nil
+      expect(ActiveRecordQueryCounter.cached_query_count).to eq nil
+      expect(ActiveRecordQueryCounter.transaction_count).to eq nil
+      expect(ActiveRecordQueryCounter.transactions).to eq nil
+      expect(ActiveRecordQueryCounter.transaction_time).to eq nil
       expect(ActiveRecordQueryCounter.info).to eq nil
+    end
+
+    it "returns empty information when no queries have been made" do
+      ActiveRecordQueryCounter.count_queries do
+        expect(ActiveRecordQueryCounter.query_count).to eq 0
+        expect(ActiveRecordQueryCounter.row_count).to eq 0
+        expect(ActiveRecordQueryCounter.query_time).to eq 0
+        expect(ActiveRecordQueryCounter.cached_query_count).to eq 0
+        expect(ActiveRecordQueryCounter.transaction_count).to eq 0
+        expect(ActiveRecordQueryCounter.transactions).to eq []
+        expect(ActiveRecordQueryCounter.transaction_time).to eq 0
+        expect(ActiveRecordQueryCounter.info).to eq({
+          query_count: 0,
+          row_count: 0,
+          query_time: 0,
+          cached_query_count: 0,
+          cache_hit_rate: 0.0,
+          transaction_count: 0,
+          transaction_time: 0
+        })
+      end
     end
 
     it "counts the number of queries and rows returned within a block" do
@@ -42,6 +67,8 @@ describe ActiveRecordQueryCounter do
           query_count: 2,
           row_count: 4,
           query_time: ActiveRecordQueryCounter.query_time,
+          cached_query_count: 0,
+          cache_hit_rate: 0.0,
           transaction_count: 1,
           transaction_time: ActiveRecordQueryCounter.transaction_time
         })
@@ -60,11 +87,23 @@ describe ActiveRecordQueryCounter do
           expect(result.name).to eq "B"
           expect(ActiveRecordQueryCounter.query_count).to eq 1
           expect(ActiveRecordQueryCounter.row_count).to eq 1
+          expect(ActiveRecordQueryCounter.cached_query_count).to eq 0
 
           result = TestModel.find_by(name: "B")
           expect(result.name).to eq "B"
           expect(ActiveRecordQueryCounter.query_count).to eq 1
           expect(ActiveRecordQueryCounter.row_count).to eq 1
+          expect(ActiveRecordQueryCounter.cached_query_count).to eq 1
+
+          expect(ActiveRecordQueryCounter.info).to eq({
+            query_count: 1,
+            row_count: 1,
+            query_time: ActiveRecordQueryCounter.query_time,
+            cached_query_count: 1,
+            cache_hit_rate: 0.5,
+            transaction_count: 0,
+            transaction_time: 0
+          })
         end
       end
     end
