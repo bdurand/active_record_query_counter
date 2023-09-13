@@ -19,7 +19,7 @@ require_relative "active_record_query_counter/version"
 #    puts ActiveRecordQueryCounter.row_count
 #  end
 module ActiveRecordQueryCounter
-  IGNORED_STATEMENTS = %w[CACHE SCHEMA EXPLAIN].freeze
+  IGNORED_STATEMENTS = %w[SCHEMA EXPLAIN].freeze
   private_constant :IGNORED_STATEMENTS
 
   class << self
@@ -107,6 +107,16 @@ module ActiveRecordQueryCounter
       counter.query_count if counter.is_a?(Counter)
     end
 
+    # Return the number of queries that hit the query cache and were not sent to the database
+    # that have been counted within the current block.  Returns nil if not inside a block where
+    # queries are being counted.
+    #
+    # @return [Integer, nil]
+    def cached_query_count
+      counter = current_counter
+      counter.cached_query_count if counter.is_a?(Counter)
+    end
+
     # Return the number of rows that have been counted within the current block.
     # Returns nil if not inside a block where queries are being counted.
     #
@@ -182,6 +192,8 @@ module ActiveRecordQueryCounter
           query_count: counter.query_count,
           row_count: counter.row_count,
           query_time: counter.query_time,
+          cached_query_count: counter.cached_query_count,
+          cache_hit_rate: counter.cache_hit_rate,
           transaction_count: counter.transaction_count,
           transaction_time: counter.transaction_time
         }
@@ -212,6 +224,13 @@ module ActiveRecordQueryCounter
       end
       unless ActiveRecord::ConnectionAdapters::TransactionManager.include?(TransactionManagerExtension)
         ActiveRecord::ConnectionAdapters::TransactionManager.prepend(TransactionManagerExtension)
+      end
+
+      @cache_subscription ||= ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start_time, _end_time, _id, payload|
+        if payload[:cached]
+          counter = current_counter
+          counter.cached_query_count += 1 if counter
+        end
       end
     end
 
