@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added count of queries that hit the query cache instead of being sent to the database.
 
+### Removed
+
+- Dropped support for ActiveRecord 5.0.
+
 ## 2.0.0
 
 ### Added
