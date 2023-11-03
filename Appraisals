@@ -1,4 +1,4 @@
-RAILS_MINOR_RELEASES = ["7.0", "6.1", "6.0", "5.2", "5.1"].freeze
+RAILS_MINOR_RELEASES = ["7.1", "7.0", "6.1", "6.0", "5.2", "5.1"].freeze
 
 RAILS_MINOR_RELEASES.each do |version|
   appraise "activerecord-#{version}" do

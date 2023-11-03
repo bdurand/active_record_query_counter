@@ -48,6 +48,20 @@ module ActiveRecordQueryCounter
       end
     end
 
+    # Disable query counting in a block. Any queries or transactions inside the block will not
+    # be counted.
+    #
+    # @return [Object] the return value of the block
+    def disable(&block)
+      counter = current_counter
+      begin
+        self.current_counter = nil
+        yield
+      ensure
+        self.current_counter = counter
+      end
+    end
+
     # Increment the query counters.
     #
     # @param row_count [Integer] the number of rows returned by the query
@@ -219,12 +233,8 @@ module ActiveRecordQueryCounter
     # @param connection_class [Class] the connection adapter class to extend
     # @return [void]
     def enable!(connection_class)
-      unless connection_class.include?(ConnectionAdapterExtension)
-        connection_class.prepend(ConnectionAdapterExtension)
-      end
-      unless ActiveRecord::ConnectionAdapters::TransactionManager.include?(TransactionManagerExtension)
-        ActiveRecord::ConnectionAdapters::TransactionManager.prepend(TransactionManagerExtension)
-      end
+      ConnectionAdapterExtension.inject(connection_class)
+      TransactionManagerExtension.inject(ActiveRecord::ConnectionAdapters::TransactionManager)
 
       @cache_subscription ||= ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start_time, _end_time, _id, payload|
         if payload[:cached]

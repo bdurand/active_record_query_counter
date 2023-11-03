@@ -3,6 +3,14 @@
 module ActiveRecordQueryCounter
   # Extension to ActiveRecord::ConnectionAdapters::TransactionManager to count transactions.
   module TransactionManagerExtension
+    class << self
+      def inject(transaction_manager_class)
+        unless transaction_manager_class.include?(self)
+          transaction_manager_class.prepend(self)
+        end
+      end
+    end
+
     def begin_transaction(*args, **kwargs)
       if open_transactions == 0
         @active_record_query_counter_transaction_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
