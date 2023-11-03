@@ -186,6 +186,22 @@ describe ActiveRecordQueryCounter do
     end
   end
 
+  describe "disable" do
+    it "disables counting queries in a block" do
+      ActiveRecordQueryCounter.count_queries do
+        TestModel.first
+        expect(ActiveRecordQueryCounter.query_count).to eq 1
+
+        result = ActiveRecordQueryCounter.disable { TestModel.all.to_a }
+        expect(result.map(&:name)).to match_array(["A", "B", "C"])
+        expect(ActiveRecordQueryCounter.query_count).to eq 1
+
+        TestModel.last
+        expect(ActiveRecordQueryCounter.query_count).to eq 2
+      end
+    end
+  end
+
   describe "notifications" do
     it "sends a notification when the query count exceeds the threshold" do
       notifications = capture_notifications("query_time") do

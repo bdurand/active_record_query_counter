@@ -48,6 +48,20 @@ module ActiveRecordQueryCounter
       end
     end
 
+    # Disable query counting in a block. Any queries or transactions inside the block will not
+    # be counted.
+    #
+    # @return [Object] the return value of the block
+    def disable(&block)
+      counter = current_counter
+      begin
+        self.current_counter = nil
+        yield
+      ensure
+        self.current_counter = counter
+      end
+    end
+
     # Increment the query counters.
     #
     # @param row_count [Integer] the number of rows returned by the query
