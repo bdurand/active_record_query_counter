@@ -6,6 +6,10 @@ module ActiveRecordQueryCounter
   class Thresholds
     attr_reader :query_time, :row_count, :transaction_time, :transaction_count
 
+    def initialize
+      clear
+    end
+
     def query_time=(value)
       @query_time = value&.to_f
     end

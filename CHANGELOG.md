@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `ActiveRecordQueryCounter.disable` method to allow disabling query counting behavior within a block.
+- Rails 7.1 compatibility.
 
 ## 2.1.0
 
