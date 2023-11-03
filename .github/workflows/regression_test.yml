@@ -1,7 +1,7 @@
 name: Regression Test
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "0 15 * * 1"
 env:
   BUNDLE_CLEAN: "true"
   BUNDLE_PATH: vendor/bundle

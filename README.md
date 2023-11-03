@@ -60,6 +60,18 @@ Sidekiq.configure_server do |config|
 end
 ```
 
+If you want to disable query counting within a block of code, you can use the `disable` method.
+
+```ruby
+ActiveRecordQueryCounter.count_queries do
+  do_something
+  ActiveRecordQueryCounter.disable do
+    # Queries will not be counted in this block.
+    do_something_else
+  end
+end
+```
+
 ### Notifications
 
 You can also subscribe to ActiveSupport notifications to get notified when query thresholds are exceeded.
