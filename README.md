@@ -1,6 +1,7 @@
 # ActiveRecordQueryCounter
 
-![Continuous Integration](https://github.com/bdurand/active_record_query_counter/workflows/Continuous%20Integration/badge.svg)
+[![Continuous Integration](https://github.com/bdurand/active_record_query_counter/actions/workflows/continuous_integration.yml/badge.svg)](https://github.com/bdurand/active_record_query_counter/actions/workflows/continuous_integration.yml)
+[![Regression Test](https://github.com/bdurand/active_record_query_counter/actions/workflows/regression_test.yml/badge.svg)](https://github.com/bdurand/active_record_query_counter/actions/workflows/regression_test.yml)
 [![Ruby Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://github.com/testdouble/standard)
 
 This gem injects itself into ActiveRecord to give you insight into how your code is using the database.
@@ -202,6 +203,24 @@ ActiveSupport::Notifications.subscribe('active_record_query_counter.transaction_
     puts info.trace.join("\n")
   end
 end
+```
+
+## Installation
+
+Add this line to your application's Gemfile:
+
+```ruby
+gem 'active_record_query_counter'
+```
+
+And then execute:
+```bash
+$ bundle
+```
+
+Or install it yourself as:
+```bash
+$ gem install active_record_query_counter
 ```
 
 ## Contributing
