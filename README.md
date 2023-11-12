@@ -3,6 +3,7 @@
 [![Continuous Integration](https://github.com/bdurand/active_record_query_counter/actions/workflows/continuous_integration.yml/badge.svg)](https://github.com/bdurand/active_record_query_counter/actions/workflows/continuous_integration.yml)
 [![Regression Test](https://github.com/bdurand/active_record_query_counter/actions/workflows/regression_test.yml/badge.svg)](https://github.com/bdurand/active_record_query_counter/actions/workflows/regression_test.yml)
 [![Ruby Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://github.com/testdouble/standard)
+[![Gem Version](https://badge.fury.io/rb/active_record_query_counter.svg)](https://badge.fury.io/rb/active_record_query_counter)
 
 This gem injects itself into ActiveRecord to give you insight into how your code is using the database.
 
