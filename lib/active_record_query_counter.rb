@@ -2,12 +2,9 @@
 
 require_relative "active_record_query_counter/connection_adapter_extension"
 require_relative "active_record_query_counter/counter"
-require_relative "active_record_query_counter/rack_middleware"
-require_relative "active_record_query_counter/sidekiq_middleware"
 require_relative "active_record_query_counter/thresholds"
 require_relative "active_record_query_counter/transaction_info"
 require_relative "active_record_query_counter/transaction_manager_extension"
-require_relative "active_record_query_counter/version"
 
 # Everything you need to count ActiveRecord queries and row counts within a block.
 #
@@ -19,6 +16,10 @@ require_relative "active_record_query_counter/version"
 #    puts ActiveRecordQueryCounter.row_count
 #  end
 module ActiveRecordQueryCounter
+  autoload :RackMiddleware, "active_record_query_counter/rack_middleware"
+  autoload :SidekiqMiddleware, "active_record_query_counter/sidekiq_middleware"
+  autoload :VERSION, "active_record_query_counter/version"
+
   IGNORED_STATEMENTS = %w[SCHEMA EXPLAIN].freeze
   private_constant :IGNORED_STATEMENTS
 
@@ -233,8 +234,10 @@ module ActiveRecordQueryCounter
     # @param connection_class [Class] the connection adapter class to extend
     # @return [void]
     def enable!(connection_class)
-      ConnectionAdapterExtension.inject(connection_class)
-      TransactionManagerExtension.inject(ActiveRecord::ConnectionAdapters::TransactionManager)
+      ActiveSupport.on_load(:active_record) do
+        ConnectionAdapterExtension.inject(connection_class)
+        TransactionManagerExtension.inject(ActiveRecord::ConnectionAdapters::TransactionManager)
+      end
 
       @cache_subscription ||= ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start_time, _end_time, _id, payload|
         if payload[:cached]

@@ -34,7 +34,7 @@ module ActiveRecordQueryCounter
       values.each do |key, value|
         setter = "#{key}="
         if respond_to?(setter)
-          public_send("#{key}=", value)
+          public_send(:"#{key}=", value)
         else
           raise ArgumentError, "Unknown threshold: #{key}"
         end
