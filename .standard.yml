@@ -6,6 +6,6 @@ format: progress
 
 ignore:
   - '**/*':
-    - Standard/SemanticBlocks
+    - Style/RedundantParentheses
   - 'spec/**/*':
     - Lint/UselessAssignment
