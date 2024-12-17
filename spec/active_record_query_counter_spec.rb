@@ -41,7 +41,8 @@ describe ActiveRecordQueryCounter do
           cached_query_count: 0,
           cache_hit_rate: 0.0,
           transaction_count: 0,
-          transaction_time: 0
+          transaction_time: 0,
+          rollback_count: 0
         })
       end
     end
@@ -70,7 +71,8 @@ describe ActiveRecordQueryCounter do
           cached_query_count: 0,
           cache_hit_rate: 0.0,
           transaction_count: 1,
-          transaction_time: ActiveRecordQueryCounter.transaction_time
+          transaction_time: ActiveRecordQueryCounter.transaction_time,
+          rollback_count: 0
         })
       end
 
@@ -102,7 +104,8 @@ describe ActiveRecordQueryCounter do
             cached_query_count: 1,
             cache_hit_rate: 0.5,
             transaction_count: 0,
-            transaction_time: 0
+            transaction_time: 0,
+            rollback_count: 0
           })
         end
       end
@@ -133,6 +136,7 @@ describe ActiveRecordQueryCounter do
       expect(ActiveRecordQueryCounter.transaction_count).to eq nil
       expect(ActiveRecordQueryCounter.transaction_time).to eq nil
       expect(ActiveRecordQueryCounter.transactions).to eq nil
+      expect(ActiveRecordQueryCounter.rollback_count).to eq nil
     end
 
     it "counts the number of transactions inside a block" do
@@ -182,6 +186,34 @@ describe ActiveRecordQueryCounter do
         transactions.each do |info|
           expect(info.trace.first.start_with?(lib_dir)).to eq false
         end
+      end
+    end
+  end
+
+  describe "counting rollbacks" do
+    it "increments the rollback counters" do
+      ActiveRecordQueryCounter.count_queries do
+        TestModel.transaction do
+          TestModel.create!(name: "bar")
+          TestModel.create!(name: "baz")
+        end
+        TestModel.transaction do
+          TestModel.create!(name: "baz")
+          raise ActiveRecord::Rollback
+        end
+        expect(ActiveRecordQueryCounter.rollback_count).to eq 1
+      end
+    end
+
+    it "keeps a count of rollbacks for each rollback" do
+      ActiveRecordQueryCounter.count_queries do
+        2.times do
+          TestModel.transaction do
+            TestModel.create!(name: "baz")
+            raise ActiveRecord::Rollback
+          end
+        end
+        expect(ActiveRecordQueryCounter.rollback_count).to eq 2
       end
     end
   end
