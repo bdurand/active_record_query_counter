@@ -97,7 +97,7 @@ end
 
 #### Available Notifications
 
-#### `active_record_query_counter.query_time notification`
+#### 1. `active_record_query_counter.query_time notification`
 
 Triggered when a query exceeds the query_time threshold.
 
@@ -108,7 +108,7 @@ Triggered when a query exceeds the query_time threshold.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
 
-#### `active_record_query_counter.row_count notification`
+#### 2. `active_record_query_counter.row_count notification`
 
 Triggered when a query exceeds the row_count threshold.
 
@@ -119,7 +119,7 @@ Triggered when a query exceeds the row_count threshold.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
 
-#### `active_record_query_counter.transaction_time notification`
+#### 3. `active_record_query_counter.transaction_time notification`
 
 Triggered when a transaction exceeds the transaction_time threshold.
 
@@ -127,7 +127,7 @@ Triggered when a transaction exceeds the transaction_time threshold.
 
 - `:trace` - The stack trace of where the transaction was completed.
 
-#### `active_record_query_counter.transaction_count notification`
+#### 4. `active_record_query_counter.transaction_count notification`
 
 Triggered when transactions exceed the transaction_count threshold.
 
