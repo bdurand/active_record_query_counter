@@ -22,6 +22,12 @@ jobs:
         include:
           - ruby: "ruby"
             standardrb: true
+          - ruby: "3.3"
+            appraisal: "activerecord_8.0"
+          - ruby: "3.3"
+            appraisal: "activerecord_7.2"
+          - ruby: "3.2"
+            appraisal: "activerecord_7.1"
           - ruby: "3.2"
             appraisal: "activerecord_7.0"
           - ruby: "3.1"
@@ -36,6 +42,8 @@ jobs:
             appraisal: "without_sidekiq"
           - ruby: "3.0"
             appraisal: "sidekiq_6"
+          - ruby: "2.7"
+            appraisal: "sidekiq_5"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
