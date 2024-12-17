@@ -41,7 +41,8 @@ describe ActiveRecordQueryCounter do
           cached_query_count: 0,
           cache_hit_rate: 0.0,
           transaction_count: 0,
-          transaction_time: 0
+          transaction_time: 0,
+          rollbacks: 0
         })
       end
     end
@@ -70,7 +71,8 @@ describe ActiveRecordQueryCounter do
           cached_query_count: 0,
           cache_hit_rate: 0.0,
           transaction_count: 1,
-          transaction_time: ActiveRecordQueryCounter.transaction_time
+          transaction_time: ActiveRecordQueryCounter.transaction_time,
+          rollbacks: 0
         })
       end
 
@@ -102,7 +104,8 @@ describe ActiveRecordQueryCounter do
             cached_query_count: 1,
             cache_hit_rate: 0.5,
             transaction_count: 0,
-            transaction_time: 0
+            transaction_time: 0,
+            rollbacks: 0
           })
         end
       end
@@ -182,6 +185,16 @@ describe ActiveRecordQueryCounter do
         transactions.each do |info|
           expect(info.trace.first.start_with?(lib_dir)).to eq false
         end
+      end
+    end
+
+    it "keeps a count of rollbacks for each transaction trace" do
+      ActiveRecordQueryCounter.count_queries do
+        TestModel.transaction do
+          TestModel.create!(name: "baz")
+          raise ActiveRecord::Rollback
+        end
+        expect(ActiveRecordQueryCounter.rollbacks).to eq 1
       end
     end
   end

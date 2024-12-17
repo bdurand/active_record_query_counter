@@ -31,6 +31,7 @@ module ActiveRecordQueryCounter
       if @active_record_query_counter_transaction_start_time && open_transactions == 1
         end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         ActiveRecordQueryCounter.add_transaction(@active_record_query_counter_transaction_start_time, end_time)
+        ActiveRecordQueryCounter.increment_rollbacks
         @active_record_query_counter_transaction_start_time = nil
       end
       super
