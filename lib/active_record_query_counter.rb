@@ -121,7 +121,7 @@ module ActiveRecordQueryCounter
       counter = current_counter
       return unless counter.is_a?(Counter)
 
-      counter.rollbacks += 1
+      counter.rollback_count += 1
     end
 
     # Return the number of queries that have been counted within the current block.
@@ -210,9 +210,9 @@ module ActiveRecordQueryCounter
     # Returns nil if not inside a block where queries are being counted.
     #
     # @return [Integer, nil]
-    def rollbacks
+    def rollback_count
       counter = current_counter
-      counter.rollbacks if counter.is_a?(Counter)
+      counter.rollback_count if counter.is_a?(Counter)
     end
 
     # Return the query info as a hash with keys :query_count, :row_count, :query_time
@@ -231,7 +231,7 @@ module ActiveRecordQueryCounter
           cache_hit_rate: counter.cache_hit_rate,
           transaction_count: counter.transaction_count,
           transaction_time: counter.transaction_time,
-          rollbacks: counter.rollbacks
+          rollback_count: counter.rollback_count
         }
       end
     end
