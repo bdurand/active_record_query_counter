@@ -99,9 +99,8 @@ end
 
 ##### 1. active_record_query_counter.query_time notification
 
-Triggered when a query exceeds the query_time threshold.
+Triggered when a query exceeds the query_time threshold with the payload:
 
-Payload:
 
 - `:sql` - The SQL statement that was executed.
 - `:binds` - The bind parameters that were used.
@@ -110,9 +109,7 @@ Payload:
 
 ##### 2. active_record_query_counter.row_count notification
 
-Triggered when a query exceeds the row_count threshold.
-
-Payload:
+Triggered when a query exceeds the row_count threshold with the payload:
 
 - `:sql` - The SQL statement that was executed.
 - `:binds` - The bind parameters that were used.
@@ -121,17 +118,13 @@ Payload:
 
 ##### 3. active_record_query_counter.transaction_time notification
 
-Triggered when a transaction exceeds the transaction_time threshold.
-
-Payload:
+Triggered when a transaction exceeds the transaction_time threshold with the payload:
 
 - `:trace` - The stack trace of where the transaction was completed.
 
 ##### 4. active_record_query_counter.transaction_count notification
 
-Triggered when transactions exceed the transaction_count threshold.
-
-Payload:
+Triggered when transactions exceed the transaction_count threshold with the payload:
 
 - `:transactions` - An array of `ActiveRecordQueryCounter::TransactionInfo` objects.
 
