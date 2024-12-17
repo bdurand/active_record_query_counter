@@ -1,39 +1,47 @@
 # ActiveRecordQueryCounter
 
 [![Continuous Integration](https://github.com/bdurand/active_record_query_counter/actions/workflows/continuous_integration.yml/badge.svg)](https://github.com/bdurand/active_record_query_counter/actions/workflows/continuous_integration.yml)
-[![Regression Test](https://github.com/bdurand/active_record_query_counter/actions/workflows/regression_test.yml/badge.svg)](https://github.com/bdurand/active_record_query_counter/actions/workflows/regression_test.yml)
 [![Ruby Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://github.com/testdouble/standard)
 [![Gem Version](https://badge.fury.io/rb/active_record_query_counter.svg)](https://badge.fury.io/rb/active_record_query_counter)
 
-This gem injects itself into ActiveRecord to give you insight into how your code is using the database.
+**ActiveRecordQueryCounter** is a ruby gem that provides detailed insights into how your code interacts with the database by hooking into ActiveRecord.
 
-Within a block of code, it will count:
+It measures database usage within a block of code, including:
 
-- the number of queries
-- the number of rows returned
-- the amount of time spent on queries
-- the number of transactions used
-- the amount of time spent inside transactions
+- The number of queries executed
+- The number of rows returned
+- The total time spent on queries
+- The number of transactions used
+- The total time spent inside transactions
+- The number of transactions that were rolled back
 
-The intended use is to gather instrumentation stats for finding hot spots in your code that produce a lot of queries or slow queries or queries that return a lot of rows. It can also be used to find code that is not using transactions when making multiple updates to the database.
+This gem is designed to help you:
+
+- Identify "hot spots" in your code that generate excessive or slow queries.
+- Spot queries returning unexpectedly large result sets.
+- Detect areas where transactions are underutilized, especially when performing multiple database updates.
 
 ## Usage
 
-The behavior must be enabled on your database connection adapter from within an initializer.
+### Enabling The Gem
 
-Postgres:
+To use **ActiveRecordQueryCounter**, you first need to enable it on your database connection adapter. Add the following to an initializer:
+
+For **PostgreSQL**:
 
 ```ruby
 ActiveRecordQueryCounter.enable!(ActiveRecord::ConnectionAdapters::PostgreSQLAdapter)
 ```
 
-MySQL:
+For **MySQL**:
 
 ```ruby
 ActiveRecordQueryCounter.enable!(ActiveRecord::ConnectionAdapters::Mysql2Adapter)
 ```
 
-Next you must specify the blocks where you want to count queries.
+### Counting Queries
+
+To measure database activity, wrap the code you want to monitor inside a `count_queries` block:
 
 ```ruby
 ActiveRecordQueryCounter.count_queries do
@@ -43,18 +51,25 @@ ActiveRecordQueryCounter.count_queries do
   puts "Query Time: #{ActiveRecordQueryCounter.query_time}"
   puts "Transactions: #{ActiveRecordQueryCounter.transaction_count}"
   puts "Transaction Time: #{ActiveRecordQueryCounter.transaction_time}"
+  puts "Rollbacks: #{ActiveRecordQueryCounter.rollback_count}"
 end
 ```
 
-This gem includes middleware for both Rack and Sidekiq that will enable query counting on web requests and in workers. If you are using Rails with Sidekiq, you can enable both with an initializer.
+### Middleware Integration
+
+For **Rails** and **Sidekiq**, middleware is included to enable query counting in web requests and workers.
+
+Add the following to an initializer:
 
 ```ruby
 ActiveSupport.on_load(:active_record) do
   ActiveRecordQueryCounter.enable!(ActiveRecord::ConnectionAdapters::PostgreSQLAdapter)
 end
 
+# Enable Rack Middleware
 Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware)
 
+# Enable Sidekiq Middleware
 Sidekiq.configure_server do |config|
   config.server_middleware do |chain|
     chain.add ActiveRecordQueryCounter::SidekiqMiddleware
@@ -62,13 +77,15 @@ Sidekiq.configure_server do |config|
 end
 ```
 
-If you want to disable query counting within a block of code, you can use the `disable` method.
+### Disabling Query Counting
+
+You can temporarily disable query counting within a block using `disable`:
 
 ```ruby
 ActiveRecordQueryCounter.count_queries do
   do_something
   ActiveRecordQueryCounter.disable do
-    # Queries will not be counted in this block.
+    # Queries in this block will not be counted.
     do_something_else
   end
 end
@@ -76,43 +93,46 @@ end
 
 ### Notifications
 
-You can also subscribe to ActiveSupport notifications to get notified when query thresholds are exceeded.
+**ActiveRecordQueryCounter** supports ActiveSupport notifications when certain query thresholds are exceeded.
 
-#### active_record_query_counter.query_time notification
+#### Available Notifications
 
-This notification is triggered when a query takes longer than the `query_time` threshold. The payload contains the following keys:
+##### 1. active_record_query_counter.query_time notification
 
-- `:sql` - The SQL statement that was executed.
-- `:binds` - The bind parameters that were used.
-- `:row_count` - The number of rows returned.
-- `:trace` - The stack trace of where the query was executed.
+Triggered when a query exceeds the query_time threshold with the payload:
 
-#### active_record_query_counter.row_count notification
-
-This notification is triggered when a query returns more rows than the `row_count` threshold. The payload contains the following keys:
 
 - `:sql` - The SQL statement that was executed.
 - `:binds` - The bind parameters that were used.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
 
-#### active_record_query_counter.transaction_time notification
+##### 2. active_record_query_counter.row_count notification
 
-This notification is triggered when a transaction takes longer than the `transaction_time` threshold. The payload contains the following keys:
+Triggered when a query exceeds the row_count threshold with the payload:
+
+- `:sql` - The SQL statement that was executed.
+- `:binds` - The bind parameters that were used.
+- `:row_count` - The number of rows returned.
+- `:trace` - The stack trace of where the query was executed.
+
+##### 3. active_record_query_counter.transaction_time notification
+
+Triggered when a transaction exceeds the transaction_time threshold with the payload:
 
 - `:trace` - The stack trace of where the transaction was completed.
 
-#### active_record_query_counter.transaction_count notification
+##### 4. active_record_query_counter.transaction_count notification
 
-This notification is triggered when a transaction takes longer than the `transaction_count` threshold. The payload contains the following keys:
+Triggered when transactions exceed the transaction_count threshold with the payload:
 
 - `:transactions` - An array of `ActiveRecordQueryCounter::TransactionInfo` objects.
 
 The duration of the notification event is the time between when the first transaction was started and the last transaction was completed.
 
-#### Thresholds
+#### Setting Thresholds
 
-The thresholds for triggering notifications can be set globally in an initializer:
+Thresholds can be configured **globally** in an initializer:
 
 ```ruby
 ActiveRecordQueryCounter.default_thresholds.set(
@@ -123,7 +143,7 @@ ActiveRecordQueryCounter.default_thresholds.set(
 )
 ```
 
-They can be set locally inside a `count_queries` block with the `thresholds` object. Local thresholds will override the global thresholds only inside the block and will not change any global state.
+Or locally within a block:
 
 ```ruby
 ActiveRecordQueryCounter.count_queries do
@@ -136,7 +156,8 @@ ActiveRecordQueryCounter.count_queries do
 end
 ```
 
-You can pass thresholds to individual Sidekiq workers via the `sidekiq_options` on the worker.
+#### Sidekiq Worker Thresholds
+Thresholds for individual Sidekiq workers can be set using `sidekiq_options`:
 
 ```ruby
 class MyWorker
@@ -152,7 +173,6 @@ class MyWorker
       }
     }
   )
-  # You can disable thresholds for the worker by setting `thresholds: false`.
 
   def perform
     do_something
@@ -160,7 +180,11 @@ class MyWorker
 end
 ```
 
-You can set separate thresholds on the Rack middleware when you install it.
+To disable thresholds for a worker, set `thresholds: false`.
+
+#### Rack Middleware Thresholds
+
+You can configure separate thresholds for the Rack middleware:
 
 ```ruby
 Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware, thresholds: {
@@ -171,7 +195,7 @@ Rails.application.config.middleware.use(ActiveRecordQueryCounter::RackMiddleware
 })
 ```
 
-#### Example Notification Subscriptions
+#### Example: Subscribing to Notifications
 
 ```ruby
 ActiveRecordQueryCounter.default_thresholds.query_time = 1.0
