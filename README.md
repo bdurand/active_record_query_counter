@@ -97,44 +97,45 @@ end
 
 #### Available Notifications
 
-1. `active_record_query_counter.query_time notification`
-  Triggered when a query exceeds the query_time threshold.
+#### `active_record_query_counter.query_time notification`
 
-  **Payload:**
+Triggered when a query exceeds the query_time threshold.
 
-  - `:sql` - The SQL statement that was executed.
-  - `:binds` - The bind parameters that were used.
-  - `:row_count` - The number of rows returned.
-  - `:trace` - The stack trace of where the query was executed.
+**Payload:**
 
-2. `active_record_query_counter.row_count notification`
+- `:sql` - The SQL statement that was executed.
+- `:binds` - The bind parameters that were used.
+- `:row_count` - The number of rows returned.
+- `:trace` - The stack trace of where the query was executed.
 
-  Triggered when a query exceeds the row_count threshold.
+#### `active_record_query_counter.row_count notification`
 
-  **Payload:**
+Triggered when a query exceeds the row_count threshold.
 
-  - `:sql` - The SQL statement that was executed.
-  - `:binds` - The bind parameters that were used.
-  - `:row_count` - The number of rows returned.
-  - `:trace` - The stack trace of where the query was executed.
+**Payload:**
 
-3. `active_record_query_counter.transaction_time notification`
+- `:sql` - The SQL statement that was executed.
+- `:binds` - The bind parameters that were used.
+- `:row_count` - The number of rows returned.
+- `:trace` - The stack trace of where the query was executed.
 
-  Triggered when a transaction exceeds the transaction_time threshold.
+#### `active_record_query_counter.transaction_time notification`
 
-  **Payload:**
+Triggered when a transaction exceeds the transaction_time threshold.
 
-  - `:trace` - The stack trace of where the transaction was completed.
+**Payload:**
 
-4. `active_record_query_counter.transaction_count notification`
+- `:trace` - The stack trace of where the transaction was completed.
 
-  Triggered when transactions exceed the transaction_count threshold.
+#### `active_record_query_counter.transaction_count notification`
 
-  **Payload:**
+Triggered when transactions exceed the transaction_count threshold.
 
-  - `:transactions` - An array of `ActiveRecordQueryCounter::TransactionInfo` objects.
+**Payload:**
 
-  The duration of the notification event is the time between when the first transaction was started and the last transaction was completed.
+- `:transactions` - An array of `ActiveRecordQueryCounter::TransactionInfo` objects.
+
+The duration of the notification event is the time between when the first transaction was started and the last transaction was completed.
 
 #### Setting Thresholds
 
