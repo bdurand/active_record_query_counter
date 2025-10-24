@@ -7,5 +7,6 @@ format: progress
 ignore:
   - '**/*':
     - Style/RedundantParentheses
+    - Style/ComparableBetween
   - 'spec/**/*':
     - Lint/UselessAssignment
