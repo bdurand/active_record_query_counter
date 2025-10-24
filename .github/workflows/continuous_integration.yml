@@ -4,9 +4,11 @@ on:
     branches:
       - master
       - actions-*
-    tags:
-      - v*
   pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
 env:
   BUNDLE_CLEAN: "true"
   BUNDLE_PATH: vendor/bundle
@@ -22,6 +24,8 @@ jobs:
         include:
           - ruby: "ruby"
             standardrb: true
+          - ruby: "3.4"
+            appraisal: "activerecord_8.1"
           - ruby: "3.3"
             appraisal: "activerecord_8.0"
           - ruby: "3.3"
@@ -40,6 +44,10 @@ jobs:
             appraisal: "activerecord_5.1"
           - ruby: "ruby"
             appraisal: "without_sidekiq"
+          - ruby: "3.4"
+            appraisal: "sidekiq_8"
+          - ruby: "3.2"
+            appraisal: "sidekiq_7"
           - ruby: "3.0"
             appraisal: "sidekiq_6"
           - ruby: "2.7"
