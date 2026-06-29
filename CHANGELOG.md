@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Dropped support for Ruby versions older than 3.0 (required for `GC.total_time`).
+- Dropped support for Ruby versions older than 3.1 (required for `GC.total_time`).
 
 ## 2.3.0
 

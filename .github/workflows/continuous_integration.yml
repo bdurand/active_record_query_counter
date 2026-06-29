@@ -42,10 +42,8 @@ jobs:
             appraisal: "sidekiq_8"
           - ruby: "3.2"
             appraisal: "sidekiq_7"
-          - ruby: "3.0"
+          - ruby: "3.1"
             appraisal: "sidekiq_6"
-          - ruby: "2.7"
-            appraisal: "sidekiq_5"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

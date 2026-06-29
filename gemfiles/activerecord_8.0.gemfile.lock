@@ -2,7 +2,7 @@ PATH
   remote: ..
   specs:
     active_record_query_counter (3.0.0)
-      activerecord (>= 5.1)
+      activerecord (>= 6.0)
 
 GEM
   remote: https://rubygems.org/

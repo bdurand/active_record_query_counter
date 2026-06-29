@@ -11,7 +11,7 @@ module ActiveRecordQueryCounter
     class << self
       def inject(connection_class)
         # Rails 7.1+ uses internal_exec_query instead of exec_query.
-        mod = (connection_class.instance_methods.include?(:internal_exec_query) ? InternalExecQuery : ExecQuery)
+        mod = (connection_class.method_defined?(:internal_exec_query) ? InternalExecQuery : ExecQuery)
         unless connection_class.include?(mod)
           connection_class.prepend(mod)
         end

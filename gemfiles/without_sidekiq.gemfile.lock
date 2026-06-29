@@ -1,5 +1,5 @@
 PATH
-  remote: .
+  remote: ..
   specs:
     active_record_query_counter (3.0.0)
       activerecord (>= 6.0)
@@ -53,11 +53,8 @@ GEM
       racc
     prism (1.9.0)
     racc (1.8.1)
-    rack (3.2.6)
     rainbow (3.1.1)
     rake (13.4.2)
-    redis-client (0.30.0)
-      connection_pool
     regexp_parser (2.12.0)
     rspec (3.13.2)
       rspec-core (~> 3.13.0)
@@ -92,12 +89,6 @@ GEM
       rubocop-ast (>= 1.47.1, < 2.0)
     ruby-progressbar (1.13.0)
     securerandom (0.4.1)
-    sidekiq (8.1.6)
-      connection_pool (>= 3.0.0)
-      json (>= 2.16.0)
-      logger (>= 1.7.0)
-      rack (>= 3.2.0)
-      redis-client (>= 0.29.0)
     simplecov (0.22.0)
       docile (~> 1.1)
       simplecov-html (~> 0.11)
@@ -128,7 +119,6 @@ GEM
     yard (0.9.44)
 
 PLATFORMS
-  arm64-darwin-22
   arm64-darwin-24
 
 DEPENDENCIES
@@ -137,7 +127,6 @@ DEPENDENCIES
   bundler
   rake
   rspec (~> 3.11)
-  sidekiq
   simplecov (~> 0.21)
   sqlite3
   standard (~> 1.0)
