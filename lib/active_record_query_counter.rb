@@ -101,13 +101,15 @@ module ActiveRecordQueryCounter
       query_time_threshold = (counter.thresholds.query_time || -1)
       if query_time_threshold >= 0 && query_time >= query_time_threshold
         trace = backtrace
-        send_notification("query_time", start_time, notification_end_time, sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        send_notification("query_time", start_time, notification_end_time, **payload)
       end
 
       row_count_threshold = (counter.thresholds.row_count || -1)
       if row_count_threshold >= 0 && row_count >= row_count_threshold
         trace ||= backtrace
-        send_notification("row_count", start_time, notification_end_time, sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        send_notification("row_count", start_time, notification_end_time, **payload)
       end
     end
 
@@ -300,6 +302,18 @@ module ActiveRecordQueryCounter
       ActiveSupport::Notifications.publish("active_record_query_counter.#{name}", start_time, end_time, id, payload)
     end
 
+    def notification_payload(sql:, binds:, row_count:, trace:, elapsed_time:, gc_time:, cpu_time:)
+      {
+        sql: sql,
+        binds: binds,
+        row_count: row_count,
+        trace: trace,
+        elapsed_time: (elapsed_time * 1000.0).round(6),
+        gc_time: (gc_time * 1000.0).round(6),
+        cpu_time: (cpu_time * 1000.0).round(6)
+      }
+    end
+
     # Estimate the time spent waiting on the database by subtracting the GC time and thread CPU
     # time from the wall clock time the query took.
     #
@@ -319,7 +333,7 @@ module ActiveRecordQueryCounter
     def database_query_time(elapsed_time, gc_time, cpu_time)
       return 0.0 if elapsed_time <= 0.0
 
-      query_time = elapsed_time - gc_time - cpu_time
+      query_time = elapsed_time - (gc_time + cpu_time)
       query_time = elapsed_time - [gc_time, cpu_time].max if query_time.negative?
       query_time.clamp(0.0, elapsed_time)
     end

@@ -431,10 +431,11 @@ describe ActiveRecordQueryCounter do
       # The duration is the database query time (5s = elapsed 10 - gc 2 - cpu 3) in milliseconds,
       # not the raw wall clock time.
       expect(notifications.first[:duration]).to be_within(0.001).of(5000.0)
-      # The payload also carries the raw wall clock time and the time that was subtracted out.
-      expect(notifications.first[:elapsed_time]).to eq 10.0
-      expect(notifications.first[:gc_time]).to eq 2.0
-      expect(notifications.first[:cpu_time]).to eq 3.0
+      # The payload also carries the raw wall clock time and the time that was subtracted out,
+      # all in milliseconds to match the duration.
+      expect(notifications.first[:elapsed_time]).to eq 10000.0
+      expect(notifications.first[:gc_time]).to eq 2000.0
+      expect(notifications.first[:cpu_time]).to eq 3000.0
     end
 
     it "compares the database query time, not the wall clock time, against the threshold" do

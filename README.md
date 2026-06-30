@@ -115,9 +115,9 @@ Triggered when a query exceeds the query_time threshold with the payload:
 - `:binds` - The bind parameters that were used.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
-- `:elapsed_time` - The raw wall clock time the query took (in seconds).
-- `:gc_time` - The GC time that elapsed while the query ran (in seconds).
-- `:cpu_time` - The thread CPU time spent while the query ran (in seconds).
+- `:elapsed_time` - The raw wall clock time the query took (in milliseconds).
+- `:gc_time` - The GC time that elapsed while the query ran (in milliseconds).
+- `:cpu_time` - The thread CPU time spent while the query ran (in milliseconds).
 
 The duration of the notification event is the query time: the wall clock time with the GC time and CPU time subtracted out (see [Query Time](#query-time)). The raw wall clock time is still available as `:elapsed_time`.
 
@@ -129,9 +129,9 @@ Triggered when a query exceeds the row_count threshold with the payload:
 - `:binds` - The bind parameters that were used.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
-- `:elapsed_time` - The raw wall clock time the query took (in seconds).
-- `:gc_time` - The GC time that elapsed while the query ran (in seconds).
-- `:cpu_time` - The thread CPU time spent while the query ran (in seconds).
+- `:elapsed_time` - The raw wall clock time the query took (in milliseconds).
+- `:gc_time` - The GC time that elapsed while the query ran (in milliseconds).
+- `:cpu_time` - The thread CPU time spent while the query ran (in milliseconds).
 
 ##### 3. active_record_query_counter.transaction_time notification
 
