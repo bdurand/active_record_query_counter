@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `:elapsed_time` (the raw wall clock time) to the `query_time` and `row_count` notification payloads.
+- Added `:elapsed_time` (the raw wall clock time), `:gc_time`, and `:cpu_time` to the `:query_time` and `:row_count` notification payloads.
 
 ### Removed
 
