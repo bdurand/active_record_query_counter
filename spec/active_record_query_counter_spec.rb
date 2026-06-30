@@ -60,7 +60,7 @@ describe ActiveRecordQueryCounter do
         expect(ActiveRecordQueryCounter.row_count).to eq 4
 
         expect(ActiveRecordQueryCounter.query_time).to be_a(Float)
-        expect(ActiveRecordQueryCounter.query_time).to be > 0
+        expect(ActiveRecordQueryCounter.query_time).to be >= 0
 
         ActiveRecord::Base.transaction { true }
 
@@ -247,7 +247,10 @@ describe ActiveRecordQueryCounter do
       expect(notifications.first[:binds]).to be_a(Array)
       expect(notifications.first[:row_count]).to eq 3
       expect(notifications.first[:trace]).to be_a(Array)
-      expect(notifications.first[:duration]).to be > 0
+      expect(notifications.first[:duration]).to be >= 0
+      expect(notifications.first[:elapsed_time]).to be_a(Float)
+      expect(notifications.first[:gc_time]).to be_a(Float)
+      expect(notifications.first[:cpu_time]).to be_a(Float)
     end
 
     it "does not send a notification when the query count does not exceed the threshold" do
@@ -272,7 +275,10 @@ describe ActiveRecordQueryCounter do
       expect(notifications.first[:binds]).to be_a(Array)
       expect(notifications.first[:row_count]).to eq 3
       expect(notifications.first[:trace]).to be_a(Array)
-      expect(notifications.first[:duration]).to be > 0
+      expect(notifications.first[:duration]).to be >= 0
+      expect(notifications.first[:elapsed_time]).to be_a(Float)
+      expect(notifications.first[:gc_time]).to be_a(Float)
+      expect(notifications.first[:cpu_time]).to be_a(Float)
     end
 
     it "does not send a notification when the row count does not exceed the threshold" do
@@ -373,6 +379,74 @@ describe ActiveRecordQueryCounter do
     it "does nothing when there is no current counter" do
       ActiveRecordQueryCounter.thresholds.query_time = 1
       expect(ActiveRecordQueryCounter.default_thresholds.query_time).to eq nil
+    end
+  end
+
+  describe "database query time" do
+    # elapsed_time, gc_time, and cpu_time are passed directly so the timing does not depend on
+    # the host's clock behavior. add_query is the method the connection adapter calls with the
+    # measured timings.
+    def add_query(elapsed:, gc:, cpu:, row_count: 1, name: "TestModel Load")
+      ActiveRecordQueryCounter.add_query("SELECT 1", name, [], row_count, 100.0, 100.0 + elapsed, gc, cpu)
+    end
+
+    describe "database_query_time" do
+      it "subtracts the gc time and cpu time from the elapsed time" do
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 10.0, 2.0, 3.0)).to eq 5.0
+      end
+
+      it "returns the full elapsed time when there is no gc or cpu time" do
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 4.0, 0.0, 0.0)).to eq 4.0
+      end
+
+      it "subtracts only the larger of gc and cpu time when subtracting both would go negative" do
+        # 10 - 8 - 7 = -5, so fall back to 10 - max(8, 7) = 2 rather than double counting.
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 10.0, 8.0, 7.0)).to eq 2.0
+      end
+
+      it "never returns a negative value" do
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 1.0, 5.0, 5.0)).to eq 0.0
+      end
+
+      it "returns zero when no time elapsed" do
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 0.0, 1.0, 1.0)).to eq 0.0
+      end
+    end
+
+    it "accumulates the database query time rather than the wall clock time" do
+      ActiveRecordQueryCounter.count_queries do
+        add_query(elapsed: 10.0, gc: 2.0, cpu: 3.0)
+        expect(ActiveRecordQueryCounter.query_time).to eq 5.0
+      end
+    end
+
+    it "uses the database query time as the notification duration" do
+      notifications = capture_notifications("query_time") do
+        ActiveRecordQueryCounter.count_queries do
+          ActiveRecordQueryCounter.thresholds.query_time = 0
+          add_query(elapsed: 10.0, gc: 2.0, cpu: 3.0)
+        end
+      end
+      expect(notifications.size).to eq 1
+      # The duration is the database query time (5s = elapsed 10 - gc 2 - cpu 3) in milliseconds,
+      # not the raw wall clock time.
+      expect(notifications.first[:duration]).to be_within(0.001).of(5000.0)
+      # The payload also carries the raw wall clock time and the time that was subtracted out,
+      # all in milliseconds to match the duration.
+      expect(notifications.first[:elapsed_time]).to eq 10000.0
+      expect(notifications.first[:gc_time]).to eq 2000.0
+      expect(notifications.first[:cpu_time]).to eq 3000.0
+    end
+
+    it "compares the database query time, not the wall clock time, against the threshold" do
+      notifications = capture_notifications("query_time") do
+        ActiveRecordQueryCounter.count_queries do
+          # Wall clock time (10) exceeds the threshold, but the database time (5) does not.
+          ActiveRecordQueryCounter.thresholds.query_time = 6
+          add_query(elapsed: 10.0, gc: 2.0, cpu: 3.0)
+        end
+      end
+      expect(notifications).to be_empty
     end
   end
 end

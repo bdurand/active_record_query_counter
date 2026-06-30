@@ -65,32 +65,51 @@ module ActiveRecordQueryCounter
 
     # Increment the query counters.
     #
+    # The reported query time is the wall clock time spent executing the query with the GC
+    # time and Ruby thread CPU time subtracted out so that it reflects the time actually
+    # spent waiting on the database as closely as possible (see {.database_query_time}). This
+    # query time, rather than the raw wall clock time, is what is accumulated, compared against
+    # the threshold, and used as the duration of the emitted notification.
+    #
+    # @param sql [String] the SQL statement that was executed
+    # @param name [String, nil] the name of the query
+    # @param binds [Array] the bind parameters
     # @param row_count [Integer] the number of rows returned by the query
-    # @param elapsed_time [Float] the time spent executing the query
+    # @param start_time [Float] the monotonic time when the query started
+    # @param end_time [Float] the monotonic time when the query ended
+    # @param gc_time [Float] the GC time in seconds that elapsed while the query ran
+    # @param cpu_time [Float] the thread CPU time in seconds spent while the query ran
     # @return [void]
     # @api private
-    def add_query(sql, name, binds, row_count, start_time, end_time)
+    def add_query(sql, name, binds, row_count, start_time, end_time, gc_time, cpu_time)
       return if IGNORED_STATEMENTS.include?(name)
 
       counter = current_counter
       return unless counter.is_a?(Counter)
 
       elapsed_time = end_time - start_time
+      query_time = database_query_time(elapsed_time, gc_time, cpu_time)
       counter.query_count += 1
       counter.row_count += row_count
-      counter.query_time += elapsed_time
+      counter.query_time += query_time
+
+      # The notification duration is the database query time, so the event ends that long after
+      # it started rather than at the raw wall clock end time.
+      notification_end_time = start_time + query_time
 
       trace = nil
       query_time_threshold = (counter.thresholds.query_time || -1)
-      if query_time_threshold >= 0 && elapsed_time >= query_time_threshold
+      if query_time_threshold >= 0 && query_time >= query_time_threshold
         trace = backtrace
-        send_notification("query_time", start_time, end_time, sql: sql, binds: binds, row_count: row_count, trace: trace)
+        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        send_notification("query_time", start_time, notification_end_time, **payload)
       end
 
       row_count_threshold = (counter.thresholds.row_count || -1)
       if row_count_threshold >= 0 && row_count >= row_count_threshold
         trace ||= backtrace
-        send_notification("row_count", start_time, end_time, sql: sql, binds: binds, row_count: row_count, trace: trace)
+        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        send_notification("row_count", start_time, notification_end_time, **payload)
       end
     end
 
@@ -281,6 +300,42 @@ module ActiveRecordQueryCounter
     def send_notification(name, start_time, end_time, payload = {})
       id = "#{name}-#{SecureRandom.hex}"
       ActiveSupport::Notifications.publish("active_record_query_counter.#{name}", start_time, end_time, id, payload)
+    end
+
+    def notification_payload(sql:, binds:, row_count:, trace:, elapsed_time:, gc_time:, cpu_time:)
+      {
+        sql: sql,
+        binds: binds,
+        row_count: row_count,
+        trace: trace,
+        elapsed_time: (elapsed_time * 1000.0).round(6),
+        gc_time: (gc_time * 1000.0).round(6),
+        cpu_time: (cpu_time * 1000.0).round(6)
+      }
+    end
+
+    # Estimate the time spent waiting on the database by subtracting the GC time and thread CPU
+    # time from the wall clock time the query took.
+    #
+    # The GC time and CPU time normally measure distinct, non-overlapping intervals: a GC pause
+    # triggered by another thread happens while this thread is parked waiting on the database
+    # (off CPU, so it does not count as CPU time), while CPU time covers the Ruby work of
+    # building the result. They only overlap when the query's own thread triggers a GC, which
+    # runs on that thread and so counts as both GC time and CPU time. When that overlap is large
+    # enough to drive the result negative, only the larger of the two is subtracted so the shared
+    # interval is removed once. The result is clamped so it never exceeds the wall clock time and
+    # is never negative.
+    #
+    # @param elapsed_time [Float] the wall clock time the query took in seconds
+    # @param gc_time [Float] the GC time in seconds that elapsed while the query ran
+    # @param cpu_time [Float] the thread CPU time in seconds spent while the query ran
+    # @return [Float] the estimated database time in seconds
+    def database_query_time(elapsed_time, gc_time, cpu_time)
+      return 0.0 if elapsed_time <= 0.0
+
+      query_time = elapsed_time - (gc_time + cpu_time)
+      query_time = elapsed_time - [gc_time, cpu_time].max if query_time.negative?
+      query_time.clamp(0.0, elapsed_time)
     end
 
     def backtrace

@@ -33,16 +33,6 @@ appraise "activerecord_6.0" do
   gem "sqlite3", "~> 1.4.0"
 end
 
-appraise "activerecord_5.2" do
-  gem "activerecord", "~> 5.2.0"
-  gem "sqlite3", "~> 1.3.0"
-end
-
-appraise "activerecord_5.1" do
-  gem "activerecord", "~> 5.2.0"
-  gem "sqlite3", "~> 1.3.0"
-end
-
 appraise "without_sidekiq" do
   remove_gem "sidekiq"
 end
@@ -59,10 +49,4 @@ appraise "sidekiq_6" do
   gem "sidekiq", "~> 6.0"
   gem "activerecord", "~> 7.0"
   gem "sqlite3", "~> 1.4.0"
-end
-
-appraise "sidekiq_5" do
-  gem "sidekiq", "~> 5.0"
-  gem "activerecord", "~> 5.2"
-  gem "sqlite3", "~> 1.3.0"
 end

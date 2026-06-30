@@ -55,6 +55,15 @@ ActiveRecordQueryCounter.count_queries do
 end
 ```
 
+### Query Time
+
+The query time (`ActiveRecordQueryCounter.query_time` and the duration reported by the notifications) is **not** the raw wall clock time a query took. The wall clock time includes time the thread was not actually waiting on the database, such as GC pauses (which can be triggered by other threads and stop the world) and the Ruby CPU work of building the result objects. On a busy, multi-threaded server these can add up to seconds, making a trivial query look pathologically slow.
+
+To report the time actually spent waiting on the database as closely as possible, the GC time and thread CPU time that elapsed while the query ran are subtracted from the wall clock time. The raw wall clock time is still available as `:elapsed_time` in the notification payloads.
+
+> [!NOTE]
+> Measuring GC time requires Ruby's GC total time measurement, which is enabled by default (`GC.measure_total_time`). Thread CPU time is measured via `Process::CLOCK_THREAD_CPUTIME_ID`; on platforms that do not provide it, CPU time is treated as zero.
+
 ### Middleware Integration
 
 For **Rails** and **Sidekiq**, middleware is included to enable query counting in web requests and workers.
@@ -106,6 +115,11 @@ Triggered when a query exceeds the query_time threshold with the payload:
 - `:binds` - The bind parameters that were used.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
+- `:elapsed_time` - The raw wall clock time the query took (in milliseconds).
+- `:gc_time` - The GC time that elapsed while the query ran (in milliseconds).
+- `:cpu_time` - The thread CPU time spent while the query ran (in milliseconds).
+
+The duration of the notification event is the query time: the wall clock time with the GC time and CPU time subtracted out (see [Query Time](#query-time)). The raw wall clock time is still available as `:elapsed_time`.
 
 ##### 2. active_record_query_counter.row_count notification
 
@@ -115,6 +129,9 @@ Triggered when a query exceeds the row_count threshold with the payload:
 - `:binds` - The bind parameters that were used.
 - `:row_count` - The number of rows returned.
 - `:trace` - The stack trace of where the query was executed.
+- `:elapsed_time` - The raw wall clock time the query took (in milliseconds).
+- `:gc_time` - The GC time that elapsed while the query ran (in milliseconds).
+- `:cpu_time` - The thread CPU time spent while the query ran (in milliseconds).
 
 ##### 3. active_record_query_counter.transaction_time notification
 
