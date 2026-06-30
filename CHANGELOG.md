@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Query time now excludes GC pause time and Ruby thread CPU time so that it more closely reflects the time actually spent waiting on the database. This affects the accumulated `query_time`, the `query_time` threshold comparison, and the duration of the `query_time` and `row_count` notifications.
 
+### Added
+
+- Added `:elapsed_time` (the raw wall clock time) to the `query_time` and `row_count` notification payloads.
+
 ### Removed
 
 - Dropped support for Ruby versions older than 3.1 (required for `GC.total_time`).

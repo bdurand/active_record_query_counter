@@ -248,6 +248,7 @@ describe ActiveRecordQueryCounter do
       expect(notifications.first[:row_count]).to eq 3
       expect(notifications.first[:trace]).to be_a(Array)
       expect(notifications.first[:duration]).to be >= 0
+      expect(notifications.first[:elapsed_time]).to be_a(Float)
     end
 
     it "does not send a notification when the query count does not exceed the threshold" do
@@ -273,6 +274,7 @@ describe ActiveRecordQueryCounter do
       expect(notifications.first[:row_count]).to eq 3
       expect(notifications.first[:trace]).to be_a(Array)
       expect(notifications.first[:duration]).to be >= 0
+      expect(notifications.first[:elapsed_time]).to be_a(Float)
     end
 
     it "does not send a notification when the row count does not exceed the threshold" do
@@ -425,6 +427,8 @@ describe ActiveRecordQueryCounter do
       # The duration is the database query time (5s = elapsed 10 - gc 2 - cpu 3) in milliseconds,
       # not the raw wall clock time.
       expect(notifications.first[:duration]).to be_within(0.001).of(5000.0)
+      # The payload still carries the raw wall clock time as :elapsed_time.
+      expect(notifications.first[:elapsed_time]).to eq 10.0
     end
 
     it "compares the database query time, not the wall clock time, against the threshold" do
