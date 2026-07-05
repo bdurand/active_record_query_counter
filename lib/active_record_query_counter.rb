@@ -1,5 +1,14 @@
 # frozen_string_literal: true
 
+require "securerandom"
+
+# Rails 7+ isolates request state per thread or fiber depending on the application's
+# configured isolation level. Not available in ActiveSupport 6.x.
+begin
+  require "active_support/isolated_execution_state"
+rescue LoadError
+end
+
 require_relative "active_record_query_counter/connection_adapter_extension"
 require_relative "active_record_query_counter/counter"
 require_relative "active_record_query_counter/thresholds"
@@ -213,7 +222,7 @@ module ActiveRecordQueryCounter
     # @return [Float, nil] the monotonic time when the last transaction ended,
     def last_transaction_end_time
       counter = current_counter
-      counter.transactions.last&.end_time if counter.is_a?(Counter)
+      counter.last_transaction_end_time if counter.is_a?(Counter)
     end
 
     # Return an array of transaction information for any transactions that have been counted
@@ -259,9 +268,7 @@ module ActiveRecordQueryCounter
     # thresholds are used as the default values.
     #
     # @return [ActiveRecordQueryCounter::Thresholds]
-    def default_thresholds
-      @default_thresholds ||= Thresholds.new
-    end
+    attr_reader :default_thresholds
 
     # Get the current local notification thresholds. These thresholds are only used within
     # the current `count_queries` block.
@@ -279,22 +286,38 @@ module ActiveRecordQueryCounter
         TransactionManagerExtension.inject(ActiveRecord::ConnectionAdapters::TransactionManager)
       end
 
-      @cache_subscription ||= ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start_time, _end_time, _id, payload|
-        if payload[:cached]
-          counter = current_counter
-          counter.cached_query_count += 1 if counter
+      @lock.synchronize do
+        @cache_subscription ||= ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start_time, _end_time, _id, payload|
+          if payload[:cached] && !IGNORED_STATEMENTS.include?(payload[:name])
+            counter = current_counter
+            counter.cached_query_count += 1 if counter.is_a?(Counter)
+          end
         end
       end
     end
 
     private
 
-    def current_counter
-      Thread.current[:active_record_query_counter]
-    end
+    # The counter is stored in ActiveSupport::IsolatedExecutionState when available so that
+    # it follows the application's configured isolation level (thread or fiber). The fallback
+    # for ActiveSupport 6.x uses Thread.current, which is fiber-local, so on those versions
+    # queries executed in a fiber spawned inside the block are not counted.
+    if defined?(ActiveSupport::IsolatedExecutionState)
+      def current_counter
+        ActiveSupport::IsolatedExecutionState[:active_record_query_counter]
+      end
 
-    def current_counter=(counter)
-      Thread.current[:active_record_query_counter] = counter
+      def current_counter=(counter)
+        ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
+      end
+    else
+      def current_counter
+        Thread.current[:active_record_query_counter]
+      end
+
+      def current_counter=(counter)
+        Thread.current[:active_record_query_counter] = counter
+      end
     end
 
     def send_notification(name, start_time, end_time, payload = {})
@@ -342,4 +365,7 @@ module ActiveRecordQueryCounter
       caller.reject { |line| line.start_with?(__dir__) }
     end
   end
+
+  @lock = Mutex.new
+  @default_thresholds = Thresholds.new
 end

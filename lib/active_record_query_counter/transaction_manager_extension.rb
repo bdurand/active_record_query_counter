@@ -19,22 +19,40 @@ module ActiveRecordQueryCounter
     end
 
     def commit_transaction(*args)
-      if @active_record_query_counter_transaction_start_time && open_transactions == 1
+      # The outermost check must happen before calling super because super pops the
+      # transaction stack. The transaction is only recorded after super succeeds; if the
+      # COMMIT raises, the start time is left in place so the rollback that Rails performs
+      # next is counted as a rollback rather than a successful commit.
+      start_time = @active_record_query_counter_transaction_start_time
+      committing = (start_time && open_transactions == 1)
+
+      retval = super
+
+      if committing
         end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        ActiveRecordQueryCounter.add_transaction(@active_record_query_counter_transaction_start_time, end_time)
+        ActiveRecordQueryCounter.add_transaction(start_time, end_time)
         @active_record_query_counter_transaction_start_time = nil
       end
-      super
+
+      retval
     end
 
     def rollback_transaction(*args)
-      if @active_record_query_counter_transaction_start_time && open_transactions == 1
+      # open_transactions is 0 here when a failed COMMIT already popped the transaction off
+      # the stack; the start time still being set identifies it as the outermost transaction.
+      start_time = @active_record_query_counter_transaction_start_time
+      rolling_back = (start_time && open_transactions <= 1)
+
+      super
+    ensure
+      # Recorded even if the ROLLBACK itself raises (e.g. the connection died) since the
+      # transaction is over either way.
+      if rolling_back
         end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        ActiveRecordQueryCounter.add_transaction(@active_record_query_counter_transaction_start_time, end_time)
+        ActiveRecordQueryCounter.add_transaction(start_time, end_time)
         ActiveRecordQueryCounter.increment_rollbacks
         @active_record_query_counter_transaction_start_time = nil
       end
-      super
     end
   end
 end
