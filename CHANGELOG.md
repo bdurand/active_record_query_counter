@@ -4,11 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 3.0.1
+## 3.1.0
 
 ### Changed
 
-- Transactions are now recorded after the COMMIT or ROLLBACK statement completes rather than before it is sent, so transaction time now includes the commit itself (and any commit callbacks).
+- Transaction time now ends when the COMMIT or ROLLBACK statement completes rather than before it is sent, so it includes the commit itself. Time spent in after commit and after rollback callbacks is not included since those run after the database transaction is over.
 - The counter is now stored in `ActiveSupport::IsolatedExecutionState` when available (Rails 7+) so that query counting follows the application's configured thread or fiber isolation level. On Rails 6.x the counter remains fiber-local.
 
 ### Fixed
@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ActiveRecordQueryCounter.last_transaction_end_time` now returns the latest transaction end time when transactions on multiple connections overlap. Previously it returned the end time of the transaction that started last.
 - Cached queries for ignored statements (`SCHEMA`, `EXPLAIN`) are no longer counted in the cached query count.
 - Setting up the query cache subscription in `ActiveRecordQueryCounter.enable!` is now thread safe, so concurrent calls can no longer create duplicate subscriptions that would double count cached queries.
-- `securerandom` is now required explicitly instead of relying on it having been loaded by another gem.
 
 ## 3.0.0
 
