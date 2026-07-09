@@ -2,13 +2,6 @@
 
 require "securerandom"
 
-# Rails 7+ isolates request state per thread or fiber depending on the application's
-# configured isolation level. Not available in ActiveSupport 6.x.
-begin
-  require "active_support/isolated_execution_state"
-rescue LoadError
-end
-
 require_relative "active_record_query_counter/connection_adapter_extension"
 require_relative "active_record_query_counter/counter"
 require_relative "active_record_query_counter/thresholds"
@@ -32,6 +25,9 @@ module ActiveRecordQueryCounter
 
   IGNORED_STATEMENTS = %w[SCHEMA EXPLAIN].freeze
   private_constant :IGNORED_STATEMENTS
+
+  @lock = Mutex.new
+  @default_thresholds = Thresholds.new
 
   class << self
     # Enable query counting within a block.
@@ -303,20 +299,18 @@ module ActiveRecordQueryCounter
     # it follows the application's configured isolation level (thread or fiber). The fallback
     # for ActiveSupport 6.x uses Thread.current, which is fiber-local, so on those versions
     # queries executed in a fiber spawned inside the block are not counted.
-    if defined?(ActiveSupport::IsolatedExecutionState)
-      def current_counter
+    def current_counter
+      if defined?(ActiveSupport::IsolatedExecutionState)
         ActiveSupport::IsolatedExecutionState[:active_record_query_counter]
-      end
-
-      def current_counter=(counter)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
-      end
-    else
-      def current_counter
+      else
         Thread.current[:active_record_query_counter]
       end
+    end
 
-      def current_counter=(counter)
+    def current_counter=(counter)
+      if defined?(ActiveSupport::IsolatedExecutionState)
+        ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
+      else
         Thread.current[:active_record_query_counter] = counter
       end
     end
@@ -366,7 +360,4 @@ module ActiveRecordQueryCounter
       caller.reject { |line| line.start_with?(__dir__) }
     end
   end
-
-  @lock = Mutex.new
-  @default_thresholds = Thresholds.new
 end
