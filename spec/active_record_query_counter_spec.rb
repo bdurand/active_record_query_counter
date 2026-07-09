@@ -111,6 +111,24 @@ describe ActiveRecordQueryCounter do
       end
     end
 
+    it "does not count cached queries for ignored statements" do
+      ActiveRecordQueryCounter.count_queries do
+        ActiveSupport::Notifications.instrument("sql.active_record", cached: true, name: "SCHEMA") {}
+        ActiveSupport::Notifications.instrument("sql.active_record", cached: true, name: "TestModel Load") {}
+        expect(ActiveRecordQueryCounter.cached_query_count).to eq 1
+      end
+    end
+
+    if defined?(ActiveSupport::IsolatedExecutionState)
+      it "counts queries run in a fiber spawned inside the block" do
+        ActiveRecordQueryCounter.count_queries do
+          TestModel.first
+          count = Fiber.new { ActiveRecordQueryCounter.query_count }.resume
+          expect(count).to eq 1
+        end
+      end
+    end
+
     it "counts queries with no results" do
       ActiveRecordQueryCounter.count_queries do
         result = TestModel.find_by(name: "X")
@@ -188,6 +206,29 @@ describe ActiveRecordQueryCounter do
         end
       end
     end
+
+    it "does not include after commit callbacks in the transaction time" do
+      model_class = Class.new(ActiveRecord::Base) do
+        self.table_name = TestModel.table_name
+
+        after_commit { sleep(0.1) }
+      end
+
+      ActiveRecordQueryCounter.count_queries do
+        model_class.transaction { model_class.create!(name: "callback") }
+        expect(ActiveRecordQueryCounter.transaction_count).to eq 1
+        expect(ActiveRecordQueryCounter.transaction_time).to be < 0.1
+      end
+    end
+
+    it "returns the latest end time when transactions overlap" do
+      ActiveRecordQueryCounter.count_queries do
+        ActiveRecordQueryCounter.add_transaction(1.0, 5.0)
+        ActiveRecordQueryCounter.add_transaction(2.0, 3.0)
+        expect(ActiveRecordQueryCounter.first_transaction_start_time).to eq 1.0
+        expect(ActiveRecordQueryCounter.last_transaction_end_time).to eq 5.0
+      end
+    end
   end
 
   describe "counting rollbacks" do
@@ -214,6 +255,25 @@ describe ActiveRecordQueryCounter do
           end
         end
         expect(ActiveRecordQueryCounter.rollback_count).to eq 2
+      end
+    end
+
+    it "counts a transaction whose commit fails as a rollback" do
+      connection = TestModel.connection
+      allow(connection).to receive(:commit_db_transaction).and_raise(ActiveRecord::StatementInvalid.new("commit failed"))
+
+      begin
+        ActiveRecordQueryCounter.count_queries do
+          expect {
+            TestModel.transaction { TestModel.create!(name: "doomed") }
+          }.to raise_error(ActiveRecord::StatementInvalid, "commit failed")
+
+          expect(ActiveRecordQueryCounter.transaction_count).to eq 1
+          expect(ActiveRecordQueryCounter.rollback_count).to eq 1
+        end
+      ensure
+        # The stub is still active when the after hook cleans up records, so remove it here.
+        allow(connection).to receive(:commit_db_transaction).and_call_original
       end
     end
   end

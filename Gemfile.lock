@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    active_record_query_counter (3.0.0)
+    active_record_query_counter (3.1.0)
       activerecord (>= 6.0)
 
 GEM
@@ -130,6 +130,7 @@ GEM
 PLATFORMS
   arm64-darwin-22
   arm64-darwin-24
+  arm64-darwin-25
 
 DEPENDENCIES
   active_record_query_counter!

@@ -52,13 +52,13 @@ module ActiveRecordQueryCounter
     end
 
     module ExecQuery
-      def exec_query(sql, name = nil, binds = [], *args, **kwargs)
+      def exec_query(sql, name = nil, binds = [], ...)
         ConnectionAdapterExtension.measure_query(sql, name, binds) { super }
       end
     end
 
     module InternalExecQuery
-      def internal_exec_query(sql, name = nil, binds = [], *args, **kwargs)
+      def internal_exec_query(sql, name = nil, binds = [], ...)
         ConnectionAdapterExtension.measure_query(sql, name, binds) { super }
       end
     end
