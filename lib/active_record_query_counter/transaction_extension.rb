@@ -18,7 +18,7 @@ module ActiveRecordQueryCounter
       @active_record_query_counter_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
-    def commit
+    def commit(...)
       # The transaction is only recorded after the COMMIT succeeds. If it raises, the start
       # time is left in place so the rollback that Rails performs next is counted as a
       # rollback rather than a successful commit. Recording here rather than in the
@@ -29,7 +29,7 @@ module ActiveRecordQueryCounter
       retval
     end
 
-    def rollback
+    def rollback(...)
       super
     ensure
       # Recorded even if the ROLLBACK itself raises (e.g. the connection died) since the

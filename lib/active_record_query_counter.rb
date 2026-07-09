@@ -25,9 +25,10 @@ require_relative "active_record_query_counter/transaction_extension"
 #    puts ActiveRecordQueryCounter.row_count
 #  end
 module ActiveRecordQueryCounter
+  VERSION = File.read(File.join(__dir__, "..", "VERSION")).strip
+
   autoload :RackMiddleware, "active_record_query_counter/rack_middleware"
   autoload :SidekiqMiddleware, "active_record_query_counter/sidekiq_middleware"
-  autoload :VERSION, "active_record_query_counter/version"
 
   IGNORED_STATEMENTS = %w[SCHEMA EXPLAIN].freeze
   private_constant :IGNORED_STATEMENTS
