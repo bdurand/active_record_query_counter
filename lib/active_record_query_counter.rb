@@ -13,7 +13,7 @@ require_relative "active_record_query_counter/connection_adapter_extension"
 require_relative "active_record_query_counter/counter"
 require_relative "active_record_query_counter/thresholds"
 require_relative "active_record_query_counter/transaction_info"
-require_relative "active_record_query_counter/transaction_manager_extension"
+require_relative "active_record_query_counter/transaction_extension"
 
 # Everything you need to count ActiveRecord queries and row counts within a block.
 #
@@ -46,8 +46,8 @@ module ActiveRecordQueryCounter
 
         transaction_count = counter.transaction_count
         if transaction_count > 0
-          transaction_threshold = (counter.thresholds.transaction_count || -1)
-          if transaction_threshold >= 0 && transaction_count >= transaction_threshold
+          transaction_threshold = counter.thresholds.transaction_count || -1
+          if transaction_threshold.between?(0, transaction_count)
             send_notification("transaction_count", counter.first_transaction_start_time, counter.last_transaction_end_time, transactions: counter.transactions)
           end
         end
@@ -107,15 +107,15 @@ module ActiveRecordQueryCounter
       notification_end_time = start_time + query_time
 
       trace = nil
-      query_time_threshold = (counter.thresholds.query_time || -1)
-      if query_time_threshold >= 0 && query_time >= query_time_threshold
+      query_time_threshold = counter.thresholds.query_time || -1
+      if query_time_threshold.between?(0, query_time)
         trace = backtrace
         payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
         send_notification("query_time", start_time, notification_end_time, **payload)
       end
 
-      row_count_threshold = (counter.thresholds.row_count || -1)
-      if row_count_threshold >= 0 && row_count >= row_count_threshold
+      row_count_threshold = counter.thresholds.row_count || -1
+      if row_count_threshold.between?(0, row_count)
         trace ||= backtrace
         payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
         send_notification("row_count", start_time, notification_end_time, **payload)
@@ -135,8 +135,8 @@ module ActiveRecordQueryCounter
       trace = backtrace
       counter.add_transaction(trace: trace, start_time: start_time, end_time: end_time)
 
-      transaction_time_threshold = (counter.thresholds.transaction_time || -1)
-      if transaction_time_threshold >= 0 && end_time - start_time >= transaction_time_threshold
+      transaction_time_threshold = counter.thresholds.transaction_time || -1
+      if transaction_time_threshold.between?(0, end_time - start_time)
         send_notification("transaction_time", start_time, end_time, trace: backtrace)
       end
     end
@@ -283,7 +283,7 @@ module ActiveRecordQueryCounter
     def enable!(connection_class)
       ActiveSupport.on_load(:active_record) do
         ConnectionAdapterExtension.inject(connection_class)
-        TransactionManagerExtension.inject(ActiveRecord::ConnectionAdapters::TransactionManager)
+        TransactionExtension.inject(ActiveRecord::ConnectionAdapters::RealTransaction)
       end
 
       @lock.synchronize do
