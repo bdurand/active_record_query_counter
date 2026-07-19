@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require "spec_helper"
 
-describe ActiveRecordQueryCounter do
+RSpec.describe ActiveRecordQueryCounter do
   before :each do
     TestModel.create!(name: "A")
     TestModel.create!(name: "B")

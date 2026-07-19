@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "../spec_helper"
+require "spec_helper"
 
-describe ActiveRecordQueryCounter::SidekiqMiddleware do
+RSpec.describe ActiveRecordQueryCounter::SidekiqMiddleware do
   before :each do
     TestModel.create!(name: "A")
     TestModel.create!(name: "B")
