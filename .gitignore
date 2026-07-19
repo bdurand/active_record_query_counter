@@ -9,5 +9,6 @@ log/*.log
 pkg/
 rdoc/
 doc/
+gemfiles/*.gemfile.lock
 .claude/
 .conductor/
