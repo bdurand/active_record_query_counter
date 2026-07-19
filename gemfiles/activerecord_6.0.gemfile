@@ -3,8 +3,9 @@
 source "https://rubygems.org"
 
 gem "sidekiq"
-gem "rspec", "~> 3.11"
 gem "sqlite3", "~> 1.4.0"
+gem "rake"
+gem "rspec", "~> 3.11"
 gem "activerecord", "~> 6.0.0"
 
 gemspec path: "../"
