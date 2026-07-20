@@ -14,8 +14,8 @@ unless ENV["DEPENDABOT"]
   unless defined?(::Appraisal::Gemfile) && is_a?(::Appraisal::Gemfile)
     group :development do
       gem "appraisal"
-      gem "standard", "~>1.0"
-      gem "simplecov", "~>1.0", require: false
+      gem "standard", "~> 1.0"
+      gem "simplecov", "~> 1.0", require: false
       gem "yard"
     end
   end
