@@ -72,10 +72,11 @@ module ActiveRecordQueryCounter
     # Increment the query counters.
     #
     # The reported query time is the wall clock time spent executing the query with the GC
-    # time and Ruby thread CPU time subtracted out so that it reflects the time actually
-    # spent waiting on the database as closely as possible (see {.database_query_time}). This
-    # query time, rather than the raw wall clock time, is what is accumulated, compared against
-    # the threshold, and used as the duration of the emitted notification.
+    # time, Ruby thread CPU time, and connection setup time subtracted out so that it reflects
+    # the time actually spent waiting on the database as closely as possible (see
+    # {.database_query_time}). This query time, rather than the raw wall clock time, is what is
+    # accumulated, compared against the threshold, and used as the duration of the emitted
+    # notification.
     #
     # @param sql [String] the SQL statement that was executed
     # @param name [String, nil] the name of the query
@@ -85,16 +86,18 @@ module ActiveRecordQueryCounter
     # @param end_time [Float] the monotonic time when the query ended
     # @param gc_time [Float] the GC time in seconds that elapsed while the query ran
     # @param cpu_time [Float] the thread CPU time in seconds spent while the query ran
+    # @param connection_time [Float] the time in seconds spent establishing, verifying, or
+    #   reconnecting the database connection while the query ran
     # @return [void]
     # @api private
-    def add_query(sql, name, binds, row_count, start_time, end_time, gc_time, cpu_time)
+    def add_query(sql, name, binds, row_count, start_time, end_time, gc_time, cpu_time, connection_time = 0.0)
       return if IGNORED_STATEMENTS.include?(name)
 
       counter = current_counter
       return unless counter.is_a?(Counter)
 
       elapsed_time = end_time - start_time
-      query_time = database_query_time(elapsed_time, gc_time, cpu_time)
+      query_time = database_query_time(elapsed_time, gc_time, cpu_time, connection_time)
       counter.query_count += 1
       counter.row_count += row_count
       counter.query_time += query_time
@@ -107,14 +110,14 @@ module ActiveRecordQueryCounter
       query_time_threshold = counter.thresholds.query_time || -1
       if query_time_threshold.between?(0, query_time)
         trace = backtrace
-        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time, connection_time: connection_time)
         send_notification("query_time", start_time, notification_end_time, **payload)
       end
 
       row_count_threshold = counter.thresholds.row_count || -1
       if row_count_threshold.between?(0, row_count)
         trace ||= backtrace
-        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time)
+        payload = notification_payload(sql: sql, binds: binds, row_count: row_count, trace: trace, elapsed_time: elapsed_time, gc_time: gc_time, cpu_time: cpu_time, connection_time: connection_time)
         send_notification("row_count", start_time, notification_end_time, **payload)
       end
     end
@@ -147,6 +150,54 @@ module ActiveRecordQueryCounter
       return unless counter.is_a?(Counter)
 
       counter.rollback_count += 1
+    end
+
+    # Begin measuring the time spent establishing, verifying, or reconnecting the database
+    # connection for a single query. Returns the timer that was previously in effect so it can
+    # be restored by {.stop_connection_timer}; this keeps nested queries (should they ever
+    # occur) from leaking connection time into one another.
+    #
+    # @return [Object, nil] the previous connection timer
+    # @api private
+    def start_connection_timer
+      previous_timer = connection_timer
+      self.connection_timer = {elapsed: 0.0, measuring: false}
+      previous_timer
+    end
+
+    # Finish measuring connection setup time for the current query and restore the previously
+    # active timer.
+    #
+    # @param previous_timer [Object, nil] the timer returned by {.start_connection_timer}
+    # @return [Float] the connection setup time in seconds accumulated for the query
+    # @api private
+    def stop_connection_timer(previous_timer)
+      timer = connection_timer
+      self.connection_timer = previous_timer
+      timer ? timer[:elapsed] : 0.0
+    end
+
+    # Measure the wall clock time a connection setup operation (connect, reconnect, or verify)
+    # takes and accumulate it onto the current query's connection timer. When no query is being
+    # measured, or when a connection setup operation is already being measured (for example when
+    # `verify!` delegates to `reconnect!`), the block is yielded without recording so the
+    # interval is only counted once.
+    #
+    # @yield the connection setup operation
+    # @return [Object] the result of the block
+    # @api private
+    def measure_connection_setup
+      timer = connection_timer
+      return yield if timer.nil? || timer[:measuring]
+
+      timer[:measuring] = true
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      begin
+        yield
+      ensure
+        timer[:elapsed] += Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+        timer[:measuring] = false
+      end
     end
 
     # Return the number of queries that have been counted within the current block.
@@ -295,24 +346,24 @@ module ActiveRecordQueryCounter
 
     private
 
-    # The counter is stored in ActiveSupport::IsolatedExecutionState when available so that
-    # it follows the application's configured isolation level (thread or fiber). The fallback
-    # for ActiveSupport 6.x uses Thread.current, which is fiber-local, so on those versions
-    # queries executed in a fiber spawned inside the block are not counted.
+    # The counter is stored in ActiveSupport::IsolatedExecutionState so that it follows the
+    # application's configured isolation level (thread or fiber).
     def current_counter
-      if defined?(ActiveSupport::IsolatedExecutionState)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter]
-      else
-        Thread.current[:active_record_query_counter]
-      end
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter]
     end
 
     def current_counter=(counter)
-      if defined?(ActiveSupport::IsolatedExecutionState)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
-      else
-        Thread.current[:active_record_query_counter] = counter
-      end
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
+    end
+
+    # The connection timer accumulates the connection setup time for the query currently being
+    # measured. It is stored with the same isolation as the counter (see {#current_counter}).
+    def connection_timer
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter_connection_timer]
+    end
+
+    def connection_timer=(timer)
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter_connection_timer] = timer
     end
 
     def send_notification(name, start_time, end_time, payload = {})
@@ -320,7 +371,7 @@ module ActiveRecordQueryCounter
       ActiveSupport::Notifications.publish("active_record_query_counter.#{name}", start_time, end_time, id, payload)
     end
 
-    def notification_payload(sql:, binds:, row_count:, trace:, elapsed_time:, gc_time:, cpu_time:)
+    def notification_payload(sql:, binds:, row_count:, trace:, elapsed_time:, gc_time:, cpu_time:, connection_time:)
       {
         sql: sql,
         binds: binds,
@@ -328,12 +379,18 @@ module ActiveRecordQueryCounter
         trace: trace,
         elapsed_time: (elapsed_time * 1000.0).round(6),
         gc_time: (gc_time * 1000.0).round(6),
-        cpu_time: (cpu_time * 1000.0).round(6)
+        cpu_time: (cpu_time * 1000.0).round(6),
+        connection_time: (connection_time * 1000.0).round(6)
       }
     end
 
-    # Estimate the time spent waiting on the database by subtracting the GC time and thread CPU
-    # time from the wall clock time the query took.
+    # Estimate the time spent waiting on the database by subtracting the connection setup time,
+    # GC time, and thread CPU time from the wall clock time the query took.
+    #
+    # The connection setup time is a measured sub-interval of the wall clock time that was spent
+    # establishing, verifying, or reconnecting the database connection rather than executing the
+    # query, so it is removed first. This is the time that inflates a trivial query into a
+    # multi-second one after an idle period or a database failover.
     #
     # The GC time and CPU time normally measure distinct, non-overlapping intervals: a GC pause
     # triggered by another thread happens while this thread is parked waiting on the database
@@ -347,13 +404,18 @@ module ActiveRecordQueryCounter
     # @param elapsed_time [Float] the wall clock time the query took in seconds
     # @param gc_time [Float] the GC time in seconds that elapsed while the query ran
     # @param cpu_time [Float] the thread CPU time in seconds spent while the query ran
+    # @param connection_time [Float] the time in seconds spent establishing, verifying, or
+    #   reconnecting the database connection while the query ran
     # @return [Float] the estimated database time in seconds
-    def database_query_time(elapsed_time, gc_time, cpu_time)
+    def database_query_time(elapsed_time, gc_time, cpu_time, connection_time = 0.0)
       return 0.0 if elapsed_time <= 0.0
 
-      query_time = elapsed_time - (gc_time + cpu_time)
-      query_time = elapsed_time - [gc_time, cpu_time].max if query_time.negative?
-      query_time.clamp(0.0, elapsed_time)
+      wait_time = (elapsed_time - connection_time).clamp(0.0, elapsed_time)
+      return 0.0 if wait_time <= 0.0
+
+      query_time = wait_time - (gc_time + cpu_time)
+      query_time = wait_time - [gc_time, cpu_time].max if query_time.negative?
+      query_time.clamp(0.0, wait_time)
     end
 
     def backtrace

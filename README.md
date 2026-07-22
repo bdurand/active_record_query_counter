@@ -57,9 +57,11 @@ end
 
 ### Query Time
 
-The query time (`ActiveRecordQueryCounter.query_time` and the duration reported by the notifications) is **not** the raw wall clock time a query took. The wall clock time includes time the thread was not actually waiting on the database, such as GC pauses (which can be triggered by other threads and stop the world) and the Ruby CPU work of building the result objects. On a busy, multi-threaded server these can add up to seconds, making a trivial query look pathologically slow.
+The query time (`ActiveRecordQueryCounter.query_time` and the duration reported by the notifications) is **not** the raw wall clock time a query took. The wall clock time includes time the thread was not actually waiting on the database, such as GC pauses (which can be triggered by other threads and stop the world), the Ruby CPU work of building the result objects, and the time spent establishing or re-establishing the database connection. On a busy, multi-threaded server these can add up to seconds, making a trivial query look pathologically slow.
 
-To report the time actually spent waiting on the database as closely as possible, the GC time and thread CPU time that elapsed while the query ran are subtracted from the wall clock time. The raw wall clock time is still available as `:elapsed_time` in the notification payloads.
+To report the time actually spent waiting on the database as closely as possible, the connection setup time, GC time, and thread CPU time that elapsed while the query ran are subtracted from the wall clock time. The raw wall clock time is still available as `:elapsed_time` in the notification payloads.
+
+Connection setup time is the wall clock time spent inside the adapter's `connect!`, `reconnect!`, and `verify!` methods while running the query. ActiveRecord (re)establishes and verifies connections lazily, from within the query execution path, so when a connection has gone stale — after an idle period, or a database failover (common with clustered databases such as Amazon Aurora) — the reconnect (DNS resolution, TCP connect, TLS handshake, and authentication) happens on the next query and is otherwise charged to it. This is reported separately as `:connection_time` in the notification payloads so these events are diagnosable rather than appearing as inexplicably slow queries.
 
 > [!NOTE]
 > Measuring GC time requires Ruby's GC total time measurement, which is enabled by default (`GC.measure_total_time`). Thread CPU time is measured via `Process::CLOCK_THREAD_CPUTIME_ID`; on platforms that do not provide it, CPU time is treated as zero.
@@ -118,8 +120,9 @@ Triggered when a query exceeds the query_time threshold with the payload:
 - `:elapsed_time` - The raw wall clock time the query took (in milliseconds).
 - `:gc_time` - The GC time that elapsed while the query ran (in milliseconds).
 - `:cpu_time` - The thread CPU time spent while the query ran (in milliseconds).
+- `:connection_time` - The time spent establishing, verifying, or reconnecting the database connection while the query ran (in milliseconds).
 
-The duration of the notification event is the query time: the wall clock time with the GC time and CPU time subtracted out (see [Query Time](#query-time)). The raw wall clock time is still available as `:elapsed_time`.
+The duration of the notification event is the query time: the wall clock time with the connection setup time, GC time, and CPU time subtracted out (see [Query Time](#query-time)). The raw wall clock time is still available as `:elapsed_time`.
 
 ##### 2. active_record_query_counter.row_count notification
 
@@ -132,6 +135,7 @@ Triggered when a query exceeds the row_count threshold with the payload:
 - `:elapsed_time` - The raw wall clock time the query took (in milliseconds).
 - `:gc_time` - The GC time that elapsed while the query ran (in milliseconds).
 - `:cpu_time` - The thread CPU time spent while the query ran (in milliseconds).
+- `:connection_time` - The time spent establishing, verifying, or reconnecting the database connection while the query ran (in milliseconds).
 
 ##### 3. active_record_query_counter.transaction_time notification
 
