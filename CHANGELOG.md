@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.0
+
+### Added
+
+- Connection setup time (time spent in the adapter's `connect!`, `reconnect!`, and `verify!` methods while running a query) is now measured and subtracted from the reported query time, so a query that triggers a reconnect after an idle period or a database failover is no longer reported as an inexplicably slow query. The time is reported separately as `:connection_time` in the `query_time` and `row_count` notification payloads.
+
 ## 3.1.1
 
 ### Fixed

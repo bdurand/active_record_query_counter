@@ -313,6 +313,7 @@ RSpec.describe ActiveRecordQueryCounter do
       expect(notifications.first[:elapsed_time]).to be_a(Float)
       expect(notifications.first[:gc_time]).to be_a(Float)
       expect(notifications.first[:cpu_time]).to be_a(Float)
+      expect(notifications.first[:connection_time]).to be_a(Float)
     end
 
     it "does not send a notification when the query count does not exceed the threshold" do
@@ -341,6 +342,7 @@ RSpec.describe ActiveRecordQueryCounter do
       expect(notifications.first[:elapsed_time]).to be_a(Float)
       expect(notifications.first[:gc_time]).to be_a(Float)
       expect(notifications.first[:cpu_time]).to be_a(Float)
+      expect(notifications.first[:connection_time]).to be_a(Float)
     end
 
     it "does not send a notification when the row count does not exceed the threshold" do
@@ -445,11 +447,11 @@ RSpec.describe ActiveRecordQueryCounter do
   end
 
   describe "database query time" do
-    # elapsed_time, gc_time, and cpu_time are passed directly so the timing does not depend on
-    # the host's clock behavior. add_query is the method the connection adapter calls with the
-    # measured timings.
-    def add_query(elapsed:, gc:, cpu:, row_count: 1, name: "TestModel Load")
-      ActiveRecordQueryCounter.add_query("SELECT 1", name, [], row_count, 100.0, 100.0 + elapsed, gc, cpu)
+    # elapsed_time, gc_time, cpu_time, and connection_time are passed directly so the timing does
+    # not depend on the host's clock behavior. add_query is the method the connection adapter
+    # calls with the measured timings.
+    def add_query(elapsed:, gc:, cpu:, connection: 0.0, row_count: 1, name: "TestModel Load")
+      ActiveRecordQueryCounter.add_query("SELECT 1", name, [], row_count, 100.0, 100.0 + elapsed, gc, cpu, connection)
     end
 
     describe "database_query_time" do
@@ -472,6 +474,19 @@ RSpec.describe ActiveRecordQueryCounter do
 
       it "returns zero when no time elapsed" do
         expect(ActiveRecordQueryCounter.send(:database_query_time, 0.0, 1.0, 1.0)).to eq 0.0
+      end
+
+      it "subtracts the connection setup time before the gc and cpu time" do
+        # 10 - connection 4 = 6 of wall clock, then 6 - gc 2 - cpu 3 = 1.
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 10.0, 2.0, 3.0, 4.0)).to eq 1.0
+      end
+
+      it "returns zero when the connection setup consumed the whole elapsed time" do
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 10.0, 0.0, 0.0, 10.0)).to eq 0.0
+      end
+
+      it "never returns a negative value when the connection time exceeds the elapsed time" do
+        expect(ActiveRecordQueryCounter.send(:database_query_time, 5.0, 0.0, 0.0, 8.0)).to eq 0.0
       end
     end
 
@@ -509,6 +524,94 @@ RSpec.describe ActiveRecordQueryCounter do
         end
       end
       expect(notifications).to be_empty
+    end
+
+    it "excludes the connection setup time from the accumulated query time" do
+      ActiveRecordQueryCounter.count_queries do
+        add_query(elapsed: 10.0, gc: 2.0, cpu: 3.0, connection: 4.0)
+        expect(ActiveRecordQueryCounter.query_time).to eq 1.0
+      end
+    end
+
+    it "reports the connection setup time in the notification payload" do
+      notifications = capture_notifications("query_time") do
+        ActiveRecordQueryCounter.count_queries do
+          ActiveRecordQueryCounter.thresholds.query_time = 0
+          add_query(elapsed: 10.0, gc: 2.0, cpu: 3.0, connection: 4.0)
+        end
+      end
+      expect(notifications.size).to eq 1
+      # The database time is elapsed 10 - connection 4 - gc 2 - cpu 3 = 1s, in milliseconds.
+      expect(notifications.first[:duration]).to be_within(0.001).of(1000.0)
+      expect(notifications.first[:elapsed_time]).to eq 10000.0
+      expect(notifications.first[:connection_time]).to eq 4000.0
+    end
+  end
+
+  describe "connection setup time" do
+    it "prepends the connection setup extension onto the adapter" do
+      expect(TestModel.connection.class.include?(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)).to eq true
+    end
+
+    it "accumulates the time spent in a wrapped connection setup method" do
+      klass = Class.new do
+        def verify!(*)
+          sleep(0.05)
+          :verified
+        end
+      end
+      klass.prepend(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)
+      adapter = klass.new
+
+      previous_timer = ActiveRecordQueryCounter.start_connection_timer
+      result = adapter.verify!
+      elapsed = ActiveRecordQueryCounter.stop_connection_timer(previous_timer)
+
+      expect(result).to eq :verified
+      expect(elapsed).to be >= 0.05
+    end
+
+    it "counts nested setup calls only once" do
+      klass = Class.new do
+        def verify!(*)
+          reconnect!
+        end
+
+        def reconnect!(*)
+          sleep(0.05)
+          :reconnected
+        end
+      end
+      klass.prepend(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)
+      adapter = klass.new
+
+      previous_timer = ActiveRecordQueryCounter.start_connection_timer
+      adapter.verify!
+      elapsed = ActiveRecordQueryCounter.stop_connection_timer(previous_timer)
+
+      # The single sleep is counted once (~0.05s), not doubled by the nested reconnect!.
+      expect(elapsed).to be >= 0.05
+      expect(elapsed).to be < 0.09
+    end
+
+    it "does not record when no query is being measured" do
+      klass = Class.new do
+        def verify!(*)
+          :verified
+        end
+      end
+      klass.prepend(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)
+
+      expect(klass.new.verify!).to eq :verified
+    end
+
+    it "is a no-op for setup methods the adapter does not define" do
+      klass = Class.new
+      klass.prepend(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)
+
+      # connect! is only defined on Rails 7.1+ adapters; the wrapper must not raise when there
+      # is no underlying method to call.
+      expect(klass.new.connect!).to be_nil
     end
   end
 end
