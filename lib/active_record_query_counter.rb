@@ -346,42 +346,24 @@ module ActiveRecordQueryCounter
 
     private
 
-    # The counter is stored in ActiveSupport::IsolatedExecutionState when available so that
-    # it follows the application's configured isolation level (thread or fiber). The fallback
-    # for ActiveSupport 6.x uses Thread.current, which is fiber-local, so on those versions
-    # queries executed in a fiber spawned inside the block are not counted.
+    # The counter is stored in ActiveSupport::IsolatedExecutionState so that it follows the
+    # application's configured isolation level (thread or fiber).
     def current_counter
-      if defined?(ActiveSupport::IsolatedExecutionState)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter]
-      else
-        Thread.current[:active_record_query_counter]
-      end
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter]
     end
 
     def current_counter=(counter)
-      if defined?(ActiveSupport::IsolatedExecutionState)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
-      else
-        Thread.current[:active_record_query_counter] = counter
-      end
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter] = counter
     end
 
     # The connection timer accumulates the connection setup time for the query currently being
     # measured. It is stored with the same isolation as the counter (see {#current_counter}).
     def connection_timer
-      if defined?(ActiveSupport::IsolatedExecutionState)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter_connection_timer]
-      else
-        Thread.current[:active_record_query_counter_connection_timer]
-      end
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter_connection_timer]
     end
 
     def connection_timer=(timer)
-      if defined?(ActiveSupport::IsolatedExecutionState)
-        ActiveSupport::IsolatedExecutionState[:active_record_query_counter_connection_timer] = timer
-      else
-        Thread.current[:active_record_query_counter_connection_timer] = timer
-      end
+      ActiveSupport::IsolatedExecutionState[:active_record_query_counter_connection_timer] = timer
     end
 
     def send_notification(name, start_time, end_time, payload = {})

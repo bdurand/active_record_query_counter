@@ -121,13 +121,11 @@ RSpec.describe ActiveRecordQueryCounter do
       end
     end
 
-    if defined?(ActiveSupport::IsolatedExecutionState)
-      it "counts queries run in a fiber spawned inside the block" do
-        ActiveRecordQueryCounter.count_queries do
-          TestModel.first
-          count = Fiber.new { ActiveRecordQueryCounter.query_count }.resume
-          expect(count).to eq 1
-        end
+    it "counts queries run in a fiber spawned inside the block" do
+      ActiveRecordQueryCounter.count_queries do
+        TestModel.first
+        count = Fiber.new { ActiveRecordQueryCounter.query_count }.resume
+        expect(count).to eq 1
       end
     end
 
@@ -586,12 +584,17 @@ RSpec.describe ActiveRecordQueryCounter do
       adapter = klass.new
 
       previous_timer = ActiveRecordQueryCounter.start_connection_timer
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       adapter.verify!
+      wall_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
       elapsed = ActiveRecordQueryCounter.stop_connection_timer(previous_timer)
 
-      # The single sleep is counted once (~0.05s), not doubled by the nested reconnect!.
+      # The single sleep is counted once, not doubled by the nested reconnect!. If the nested
+      # call were also counted, the timer would be roughly double the wall clock time of the
+      # outer call, so comparing against the measured wall time keeps the assertion valid no
+      # matter how long the sleep actually takes on a slow runner.
       expect(elapsed).to be >= 0.05
-      expect(elapsed).to be < 0.09
+      expect(elapsed).to be <= wall_time
     end
 
     it "does not record when no query is being measured" do
@@ -603,15 +606,6 @@ RSpec.describe ActiveRecordQueryCounter do
       klass.prepend(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)
 
       expect(klass.new.verify!).to eq :verified
-    end
-
-    it "is a no-op for setup methods the adapter does not define" do
-      klass = Class.new
-      klass.prepend(ActiveRecordQueryCounter::ConnectionAdapterExtension::ConnectionSetupExtension)
-
-      # connect! is only defined on Rails 7.1+ adapters; the wrapper must not raise when there
-      # is no underlying method to call.
-      expect(klass.new.connect!).to be_nil
     end
   end
 end

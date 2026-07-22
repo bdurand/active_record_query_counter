@@ -12,16 +12,13 @@ module ActiveRecordQueryCounter
     # connection. When these run inside a query (for example when a stale connection is
     # re-established after an idle period or a database failover), the wall clock time they
     # consume is spent setting up the connection rather than executing the query. It is measured
-    # separately so it can be subtracted from the reported query time. `connect!` was only added
-    # in Rails 7.1, so it is not present on every supported version.
+    # separately so it can be subtracted from the reported query time.
     CONNECTION_SETUP_METHODS = %i[connect! reconnect! verify!].freeze
 
     class << self
       def inject(connection_class)
-        # Rails 7.1+ uses internal_exec_query instead of exec_query.
-        mod = (connection_class.method_defined?(:internal_exec_query) ? InternalExecQuery : ExecQuery)
-        unless connection_class.include?(mod)
-          connection_class.prepend(mod)
+        unless connection_class.include?(InternalExecQuery)
+          connection_class.prepend(InternalExecQuery)
         end
 
         unless connection_class.include?(ConnectionSetupExtension)
@@ -68,12 +65,6 @@ module ActiveRecordQueryCounter
       end
     end
 
-    module ExecQuery
-      def exec_query(sql, name = nil, binds = [], **kwargs)
-        ConnectionAdapterExtension.measure_query(sql, name, binds) { super }
-      end
-    end
-
     module InternalExecQuery
       def internal_exec_query(sql, name = nil, binds = [], **kwargs)
         ConnectionAdapterExtension.measure_query(sql, name, binds) { super }
@@ -85,23 +76,15 @@ module ActiveRecordQueryCounter
     # (see {CONNECTION_SETUP_METHODS}). The measured time is accumulated on the current query's
     # connection timer so it can be subtracted from the reported query time.
     module ConnectionSetupExtension
-      def connect!(*args, **kwargs, &block)
-        # `defined?(super)` guards against versions where the method does not exist so this
-        # prepended definition becomes a harmless no-op instead of raising a NoMethodError.
-        return unless defined?(super)
-
+      def connect!(...)
         ActiveRecordQueryCounter.measure_connection_setup { super }
       end
 
-      def reconnect!(*args, **kwargs, &block)
-        return unless defined?(super)
-
+      def reconnect!(...)
         ActiveRecordQueryCounter.measure_connection_setup { super }
       end
 
-      def verify!(*args, **kwargs, &block)
-        return unless defined?(super)
-
+      def verify!(...)
         ActiveRecordQueryCounter.measure_connection_setup { super }
       end
     end

@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Connection setup time (time spent in the adapter's `connect!`, `reconnect!`, and `verify!` methods while running a query) is now measured and subtracted from the reported query time, so a query that triggers a reconnect after an idle period or a database failover is no longer reported as an inexplicably slow query. The time is reported separately as `:connection_time` in the `query_time` and `row_count` notification payloads.
 
+### Removed
+
+- Support for ActiveRecord versions prior to 7.1.
+
 ## 3.1.1
 
 ### Fixed
